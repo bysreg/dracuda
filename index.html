@@ -34,6 +34,42 @@
 
 <p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
 
+<h3>Goals and Deliverables</h3>
+<p>
+	We plan to achieve:
+	<ul>
+	<li>Distributed parallel ray tracing using CUDA</li>
+	<li>Load balancer algorithm that adapts to the network latency and worker nodes' computation time</li>
+	<li>API to create distributed ray tracing application</li>
+	<li>A game as an example of one of the ray tracing application</li>
+	<li>Analysis of the performance of the ray tracer. We hope to achieve real time performance with high quality images</li>
+	</ul>
+	
+	We hope to achieve:
+	<ul>
+	<li>Particle simulation using material point method</li>
+	<li>Subsurface scattering</li>
+	<li>CPU and GPU Hybrid parallelization</li>
+	</ul>
+</p>
+
+<h3>Platform Choice</h3>
+<p>
+	We are using CUDA and C++ as our main programming language. The client will be a thin client application using SDL and OpenGL. The client will communicate with other worker nodes using a network protocol that we are going to design. We chose to assume the worker nodes have GPUs that support CUDA.
+</p>
+
+<h3>Schedule</h3>
+<p>
+	<ul>
+		<li>Thursday, April 7: Implement working parallel ray tracer on single GPU</li>
+		<li>Thursday, April 14: Implement communication protocol and working distributed parallel ray tracer</li>
+		<li>Thursday, April 21: Implement a demo game</li>
+		<li>Thursday, April 28: Optimize load balancer algorithm</li>
+		<li>Thursday, May 5: Final overall optimization and write analysis and presentation</li>
+		<li>Monday, May 9: Presentation</li>
+	</ul>
+</p>
+
 <h3>
 <a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Authors and Contributors</h3>
 
