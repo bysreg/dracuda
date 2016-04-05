@@ -1,0 +1,175 @@
+This ray tracer supports all the basic functions the project required, including:
+
+	1. Intersection tests of triangles, spheres and models
+	2. Instancing
+	3. Interpolation of materials and normals
+	4. Direct illumination using Phong illumination model and Phong shading
+	5. Specular reflections and refractions
+	6. Simple texture lookup
+	7. Soft shadows using Monte-Carlo method
+	8. Light attenuation
+
+and following extra features:
+	
+	0. Custom scenes, new XML labels and attributes and new command-line switches
+	1. Russian roulette sampling
+	2. Glossy reflection and refraction
+	3. Depth of field
+	4. Motion blur
+	5. Balanced k-d tree to accelerate model-ray intersection tests
+	6. (Featured) A CSG framework to create geometries by union, intersection and difference operations
+	7. Environment mapping
+	8. Animated scene framework with a bouncing animator
+	9. Bump mapping for all geometries
+	10. Optional specular highlighting
+	11. Jittered sampling
+
+
+Deliverables:
+
+The rendered images and an animation are in the shots folder.
+To make the rendering beautiful and fast, I learned to use Amazon EC2 to massively parallelize this process.
+All the images have resolution 2400 x 1800, and most of them were rendered with over 25 x 25 samples per pixel.
+
+The animation Animation.mp4, was rendered frame by frame with 72 frames in total. I used ffmpeg to put the frames together and looped the animation 5 times.
+
+Features introduction:
+
+0. Custom scenes, tags & switches
+
+In this project, I have created a bunch of custom scenes, XML tags and command line switches to test and integrate the new features into the ray tracer. They will be mentioned at the end of each following section.
+
+1. Russian roulette sampling
+
+Because of Fresnel effect, a ray passing a refractive surface might be partially reflected and refracted. Instead of recursing both rays and weight them, simply choose one path and follow according to the probability.
+
+Code: p3/raytracer.cpp (trace_ray)
+
+2. Glossy reflection and refraction
+
+To simulate a glossy surface, I took inspiration from the Phong illumination formula, where the specular term is proportional to the cosine of the angle between reflected ray and view ray powered by shininess term.
+Likewise, in a glossy surface, the light is scattered throughout the half-space centered by the reflected ray, with each ray's intensity proportional to (cos(theta)) ^ alpha. To normalize the intensity, I calculated the integral of the hemisphere using spherical coordinate system, and found the theta value following the distrubution is:
+
+theta = arccos(random ^ (1 / (alpha + 1)))
+
+The azimuth angle phi can be a random value between [0, 2 * PI) because it does not affect the intensity. Given theta and phi, we calculate a azimuth tangent first and then mix it with the original ray using theta.
+
+Later on when I realized the refraction rays also need to be scattered, I came up with idea of adjusting the incident ray instead of the reflected ray so that both the reflected ray and refraction ray are adjusted.
+
+Code: p3/raytracer.cpp (trace_ray)
+Tags: <glossy_enabled>
+Scenes: custom_scenes/cornell_box_glossy.scene
+
+
+3. Depth of field
+
+The depth of field effect is implemented by simulating a camera which has an area (aperture) instead of a point.
+The camera also has a focal plane and everything on the plane is perfectly focused. A focal plane is the plane which is perpendicular to the camera's direction and whose distance from the camera is the focal length.
+To get the focal point, first shoot a ray from the camera to the focal plane and the intersection point is the focal point. Then I used jittered sampling to sample points on the aperture and shot rays from the points to the focal point. Mixing the colors we get from each ray gives us a depth of field image.
+
+Code: p3/raytracer.cpp (trace_pixel)
+Tags: <aperture>, <focus>, <depth_of_field_samples>, <depth_of_field_enabled>
+Scenes: custom_scenes/stacks_dof.scene
+
+4. Motion blur
+
+Sampling an animated scene over time, we will get a motion-blurred image. 
+
+To do this, I created an accumulation buffer, and added the ray tracer buffer to the accumulation buffer each frame, and finally divided it by the number of frames.
+
+Code: p3/main.cpp (start_motion_blur)
+Scenes: custom_scenes/motion_blur.scene
+Switches: -m (Motion blur mode)
+Press U key to start motion blur in interactive mode.
+
+5. K-d tree
+
+Using plain intersection test for model is very inefficient because every triangle needs to be tested. So it would be almost improbable to render the dragon scene with reasonable quality in this way, not to mention the victory scene. Therefore I used k-d tree to partition the space so that unnecessary tests can be avoided.
+The algorithm I used was described in the paper "Fast ray tracing using k-d trees". It chooses the median using a binary-search process which tries to make a figure of merit minimum: fom = abs(left - right) + shared. The partitioning stops when all the triangles are shared, or the binary-search is completed.
+
+Using k-d tree reduces the intersection test time significantly, especially for complex models (exponentially). That is also a reason why I only implemented k-d tree for models, not for the whole scene, because there are only a few geometries in the scenes given, thus it's not rewarding to partition the scene into k-d tree. But if we are dealing with a scene with millions of geometries, a k-d tree for scene will definitely be useful.
+
+Code: scene/kdtree.cpp(hpp)
+
+6. CSG framework
+
+One of the most significant advantages of ray tracing method is it's able to render any geometry represented by a solvable implicit function without using a model in an infinitely high resolution. With the advent of CSG, custom geometries can be created by operating primitive ones.
+
+I was so fascinated by how ray tracing could create CSGs elegantly that I decided to implement this feature in my ray tracer. To do this, we not only require the geometry intersection test to return the minimum time, but all the intervals that the ray is inside the geometry. So I wrote intersect_ray_interval function in each geometry for being used by CSG.
+
+Performing the operations on the geometries is essentially performing the interval operations. The interval calculations were tricky to implement in linear complexity, but finally I made it.
+
+The CSG class is a container for geometries. Those geometries should not be managed by the scene because otherwise they will interfere with other geometries' tests. Therefore CSG takes care of their lifecycles.
+
+The CSG class is also a tree structure, in which the geometries are pointed by leaf nodes, and the operations are non-leaf nodes. The tree can be arbitrarily deep and large, as long as it conforms to the rule (each operation node has two children, and each geometry node has no child).
+
+For difference operations, the normal needs to be negated if the substracted geometry is intersected, because the normal now needs to point inward the geometry. But if the subtracted geometry is in an operation that is subtracted itself, then two negatives make a positive.
+
+
+Code: scene/csg.cpp(hpp), scene/csgintervals.cpp(hpp) Geometry::intersect_ray_interval
+Tags: <csg>, <operation>
+Scene: custom_scenes/csg.scene, custom_scenes/csg_cube.scene
+
+7. Environment mapping
+
+To do environment mapping, I simulated a virtual cube of a certain size which has one texture on each face. It is not good to put the cube directly in the scene because it will affect intersection tests and shadow rays. So I perform the intersection test of environment map only if the ray does not intersect with any geometry. If the environment map is enabled, the color of the intersection point will be returned instead of background color.
+
+The environment map format is the same as the one in p2. The EnvMap class reads six textures from the environmap folder to initialize. Then when a ray comes, it tests whether the ray intersects with each face, and pick the one with minimum intersection time, and sample on that texture.
+
+Code: scene/envmap.cpp(hpp)
+Tags: <environment_map>
+Scenes: custom_scenes/envmap.scene
+
+8. Animated scene
+
+A sample animation often involves changing the a geometry's position, orientation and scale. So I designed an Animator class to allow a Geometry's transformation to be changed every frame. The transformations are updated from the time passed, not from delta time, which eliminates the need of preserving the movement state (like whether a ball is bouncing up or down).
+
+The BounceAnimator class is an sample implementation of Animator. It simulates a periodic bouncing effect. There are four parameters to be set for this animator: phase, interval, original_position and acceleration. The position of a geometry in time t is calculated using free fall movement formula (if it is falling):
+
+position = original_position + 0.5 * acceleration * ((t + phase) % interval) ^ 2
+
+When the ball reaches the ground, i.e. the time is in the second half of the interval, the animation will be reversed.
+
+Code: scene/animator.cpp(hpp) p3/main.cpp (start_animation)
+Tags: <bounce_animator>, <phase>, <interval>, <original_position>, <acceleration>
+Scenes: custom_scenes/cornell_box_animated.scene
+Switches: -a (Animation mode. In this mode, if '-r' is enabled, it saves all the frames with filenames of the frame numbers prefixed by a string specified by '-p'.)
+-p (Prefix of the animation outputs)
+Press Y to enter animation mode. The animation will be rendered frame by frame, and then it will be played.
+
+9. Bump mapping
+
+To simulate a bump effect, we need to perturb the normal according to the bump map. The direction to perturb depends both on how the pixel on the bump map is different from neighboring pixels, and the direction in which uv coordinates increase (tangent and bitangent).
+
+For the bump map sampling, the bump_sample_u(v) function calculates the difference of the pixel on the right (bottom) of that pixel, which represents the height derivative in uv directions.
+
+To calculate the tangent and bitangent, there are different strategies for spheres and models(triangles). The texture mapping function of a sphere is mathematically represented, so the tangent and bitangent can be calculated using partial derivatives.
+
+For triangles and models, the tangent and bitangent are more difficult to get because the vertices' texture coordinates are not related to their positions. A system of equations needs to be solved:
+
+V1 - V0 = (u1 - u0) T + (v1 - v0) B
+V2 - V0 = (u2 - u0) T + (v2 - v0) B
+
+After solving the T and B using Cramer's rule, the new normal will be:
+N' = normalize(N + Su * T + Sv * B), where Su and Sv are the bump sample values in u and v coordinates, respectively.
+
+Code: scene/texture.cpp(hpp) Geometry::bump_normal
+Scenes: extra/cornell_box_orange.scene custom_scenes/bump_cube.scene
+
+10. Specular highlighting
+
+The shading model the project required differs from OpenGL's Blinn-Phong illumination model in that it lacks a specular highlight. So in scenes where a specular highlight makes them look better, the specular highlight can be enabled.
+
+I used Blinn-Phong instead of Phong because the shininess scale in two models are different. To make the highlight sizes the same, I decided to conform with OpenGL and used Blinn-Phong's formula to calculate the specular term.
+
+Code: p3/raytracer.cpp (trace_ray)
+Tags: <specular_highlight_enabled>
+Scenes: custom_scenes/spheres_specular_highlight.scene
+
+11. Jittered sampling
+The starter code used random sampling, which sometimes resulted in huge color difference between neighboring pixels, especially if the number of samples is small. So I changed it to jittered grid sampling to make the outcome more stable.
+
+To accomodate this change, the num_samples variabled now represents the number of samples in each axis, not in each pixel. It means that the num_samples now should be approximately the square root of what it was.
+
+Code: p3/raytracer.cpp (trace_pixel)
+
