@@ -5,7 +5,6 @@ mkdir ..\build\p3\extra
 mkdir ..\build\p3\images
 mkdir ..\build\p3\models
 mkdir ..\build\p3\scenes
-mkdir ..\build\p3\stylesheets
 
 copy ..\cubemaps\stpet\*.* ..\build\p3\cubemaps\stpet
 copy ..\cubemaps\teide\*.* ..\build\p3\cubemaps\teide
@@ -14,4 +13,3 @@ copy ..\extra\*.* ..\build\p3\extra
 copy ..\images\*.* ..\build\p3\images
 copy ..\models\*.* ..\build\p3\models
 copy ..\scenes\*.* ..\build\p3\scenes
-copy ..\stylesheets\*.* ..\build\p3\stylesheets
