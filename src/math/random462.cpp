@@ -22,7 +22,12 @@ std::default_random_engine *init_rand(){
     ret=new std::default_random_engine(dist(rd));
     return ret;
 }
+#ifdef WIN32
+std::default_random_engine *generator = init_rand();
+#else
 thread_local std::default_random_engine *generator=init_rand();
+#endif
+
 /**
  * Generate a uniform random real_t on the interval [0, 1)
  */

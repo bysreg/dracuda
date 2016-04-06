@@ -3,6 +3,7 @@ namespace _462{
 //return a vector uniformily selected from the unit ball (not sphere)
 Vector3 random_sphere(){
     assert(false);
+	return Vector3();
 }
 
 Vector3 random_hemisphere_indexed(real_t k,real_t n){
@@ -32,5 +33,6 @@ Vector3 random_sphere_indexed(int k,int n){
 //return a vector uniformily randomly selected from the volume of a hemisphere
 Vector3 random_hemisphere(Vector3 d){
     assert(false);
+	return Vector3();
 }
 }

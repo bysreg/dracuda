@@ -339,7 +339,11 @@ bool Raytracer::raytrace(unsigned char* buffer, real_t* max_time)
             
         // This tells OpenMP that this loop can be parallelized.
 #pragma omp parallel for schedule(dynamic, CHUNK_SIZE)
+#ifdef WIN32
+			for (long x = 0; x < width; x++)
+#else
             for (size_t x = 0; x < width; x++)
+#endif
             {
                 // trace a pixel
                 Color3 color = trace_pixel(x, c_row, width, height);

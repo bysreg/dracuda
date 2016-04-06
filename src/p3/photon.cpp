@@ -24,13 +24,16 @@ void makeTree(
 
 Color3 Photon::color(){
     assert(false);
+	return Color3();
 }
 
 Vector3 Photon::position(){
     assert(false);
+	return Vector3();
 }
 Vector3 Photon::normal(){
     assert(false);
+	return Vector3();
 }
 
 
