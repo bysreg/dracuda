@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(P3)
+project(dracuda)
 
 message(STATUS "CMAKE_LIBRARY_PATH variable = ${CMAKE_LIBRARY_PATH}")
 message(STATUS "CMAKE_PREFIX_PATH variable = ${CMAKE_PREFIX_PATH}")
