@@ -13,7 +13,7 @@ void CSG::set_is_negative(CSGNode &n, bool is_negative)
 		n.is_negative = is_negative;
 	} else {
 		set_is_negative(nodes[n.left], is_negative);
-		if (n.op == DIFFERENCE)
+		if (n.op == DIFFERENCE_OP)
 			set_is_negative(nodes[n.right], !is_negative);
 		else
 			set_is_negative(nodes[n.right], is_negative);
@@ -125,7 +125,7 @@ void CSG::calculate_interval(int node, Ray &ray, CSGIntervals *intervals) const
 			case UNION:
 				intervals_union (intervals[csg_node.left], intervals[csg_node.right], interval);
 				break;
-			case DIFFERENCE:
+			case DIFFERENCE_OP:
 				difference(intervals[csg_node.left], intervals[csg_node.right], interval);
 				break;
 			case INTERSECTION:

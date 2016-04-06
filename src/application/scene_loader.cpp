@@ -416,7 +416,7 @@ static int parse_csg_operation(const MaterialMap& matmap, const MeshMap &meshmap
 	} else if (!strcmp(op, "intersection")) {
 		node.op = INTERSECTION;
 	} else if (!strcmp(op, "difference")) {
-		node.op = DIFFERENCE;
+		node.op = DIFFERENCE_OP;
 	}
 
 	const TiXmlElement *child1 = elem->FirstChildElement();
