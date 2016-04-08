@@ -39,14 +39,20 @@
 
 <p>With the advent of cloud computing, it is possible to access massive computing resources without actually purchasing them. Even GPU computing instances have become available in the past few years. Therefore, with enough GPUs, real-time rendering is possible without sacrificing the quality.</p>
 
+<p>Load balancing across heterogeneous nodes can be difficult. That is largely due to the differences of network latency and GPU performance among nodes. In order to balance the overall latency, which we estimate as network latency + work load * rendering time per unit work load, we will gather the rendering time and latency from worker nodes, and use an adaptive linear regression algorithm to predict the network latency and unit rendering time of next frame, and then assign the work load of each node accordingly.</p>
+
+<p>The architecture of this project is simple. Worker nodes are responsible for rendering. They take scene data and the work assignment information (like from Row A - Row B) as input, and send back the rendered portion of the image (compressed). The local client divides the screen into tiles, send the scene data and work allocation to worker nodes, and collects all the image parts from worker nodes and display the frames. It also adjusts the work assignment each frame using the adaptive algorithm we mentioned above.</p>
+
+<p>We might potentially use k-d tree for acceleration structure if the scene is large enough. But for general use cases, we would use plain intersection tests to keep the raytracer SIMD-friendly.</p>
+
 <h3>
 
 <a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The Challenge</h3>
 <p>
 Performance
 <ul>
-<li>Network Latency. The latency from Pittsburgh to Amazon US East server is 23 ms. A round-trip would be 46 ms. For a player to not experience lag, the latency has to be below 100 ms, so that further restricts the rendering time under 50 ms.</li>
-<li>Load Balancing Algorithm. Different compute nodes have different rendering performance and network latency. Therefore it is necessary to balance the overall latency of all nodes using an adaptive algorithm.</li>
+<li>Network Latency. The latency from Pittsburgh to Amazon US East server is 23 ms. A round-trip would be 46 ms. For a player to not experience lag, the latency has to be below 100 ms, so that restricts the rendering time under 50 ms. Besides, we are aiming for a frame rate of at least 30 FPS, our goal is to limit the rendering time of each frame to below 33 ms, to ensure the throughput is enough for the 30 FPS experience.</li>
+<li>Load Balancing Algorithm. Different compute nodes have different rendering performance and network latency. Therefore it is challenging to balance the overall latency of all nodes. We will continuously gather analytics data from nodes to adaptively balance the latency.</li>
 <li>Efficient GPU ray tracing implementation. Even though ray tracing is highly parallelizable, there are branch divergences in intersection tests, refraction / reflections, which can cause huge performance slowdown if not handled properly.</li>
 </ul>
 Graphics
