@@ -32,7 +32,11 @@ void PhotonMap::send_photons(){
     printf("Each photon used %ld bytes\n",sizeof(Photon));
     std::vector<std::vector<Photon> > raw_photons(MAX_THREADS);
 #pragma omp parallel for
+#ifdef WIN32
+	for (int j = 0; j<MAX_THREADS; j++){
+#else
     for(unsigned int j=0;j<MAX_THREADS;j++){
+#endif
         raw_photons[j].reserve(scene->num_lights()*PHOTON_COUNT*(MAX_PHOTON_DEPTH+1));
         for(unsigned int i=0;i<scene->num_lights();i++){
             SphereLight light = scene->get_lights()[i];

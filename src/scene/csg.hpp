@@ -8,8 +8,8 @@
 namespace _462 {
 
 enum CSGOperation {
-	UNION,
-	DIFFERENCE,
+	UNION = 0,
+	DIFFERENCE_OP,
 	INTERSECTION
 };
 
