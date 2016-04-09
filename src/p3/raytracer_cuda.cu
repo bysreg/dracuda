@@ -14,6 +14,11 @@ inline __host__ __device__ float3 quaternionXvector(float4 q, float3 vec)
 	return vec + uv + uuv;
 }
 
+inline __host__ __device__ float4 quaternionConjugate(float4 q)
+{
+	return make_float4(-q.x, -q.y, -q.z, q.w);
+}
+
 __constant__ cudaScene cuScene;
 
 
@@ -42,9 +47,17 @@ void cudaRayTraceKernel (unsigned char *img)
 	float3 ray_e = *((float3 *) cuScene.cam_position);
 
 	float3 *pos_ptr = (float3 *)cuScene.position;
+	float4 *rot_ptr = (float4 *)cuScene.rotation;
+	float3 *scl_ptr = (float3 *)cuScene.scale;
 	for (int i = 0; i < cuScene.N; i++) {
 		float3 t_ray_d = ray_d;
 		float3 t_ray_e = ray_e - pos_ptr[i];
+		t_ray_d = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_d);
+		t_ray_e = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_e);
+		t_ray_d = t_ray_d / scl_ptr[i];
+		t_ray_e = t_ray_e / scl_ptr[i];
+
+
 		float A = dot(t_ray_d, t_ray_d);
 		float B = dot(2 * t_ray_d, t_ray_e);
 		float C = dot(t_ray_e, t_ray_e) - cuScene.radius[i] * cuScene.radius[i];
