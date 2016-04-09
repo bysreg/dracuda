@@ -100,6 +100,13 @@ public:
         return *this;
     }
 
+	void to_array(float *arr) const {
+		arr[0] = x;
+		arr[1] = y;
+		arr[2] = z;
+		arr[3] = w;
+	}
+
     bool operator==( const Quaternion& rhs ) const {
         return rhs.x == x && rhs.y == y &&
                rhs.z == z && rhs.w == w;
