@@ -4,6 +4,7 @@
 #include "helper_math.h"
 #include <curand.h>
 #include <curand_kernel.h>
+#include "cycleTimer.h"
 #define EPS 0.0001
 
 inline __host__ __device__ float3 quaternionXvector(float4 q, float3 vec)
@@ -246,6 +247,7 @@ void cudaRayTrace(cudaScene *scene, unsigned char *img)
 	dim3 dimBlock(16, 16);
 	dim3 dimGrid(scene->width / 16, scene->height / 16);
 	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(img);
+
 }
 
 void helloInvoke()

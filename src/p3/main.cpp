@@ -22,6 +22,7 @@
 #include <cuda_runtime.h>
 #include <curand.h>
 #include "raytracer_cuda.hpp"
+#include "cycleTimer.h"
 
 #include <SDL.h>
 
@@ -614,10 +615,14 @@ void RaytracerApplication::do_gpu_raytracing()
 	cscene.width = width;
 	cscene.height = height;
 	gpu_raytracing = true;
+	double timeStart = CycleTimer::currentSeconds();
 	cudaRayTrace(&cscene, cimg);
         std::cout << "No image to output.\n";
 
 	gpuErrchk(cudaMemcpy(buffer, cimg, 4 * dwidth * dheight, cudaMemcpyDeviceToHost));
+	double timeEnd = CycleTimer::currentSeconds();
+	printf("CUDA Render Time: %lf\n", timeEnd - timeStart);
+
 }
 void RaytracerApplication::output_image()
 {
