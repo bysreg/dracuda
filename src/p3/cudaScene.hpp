@@ -1,6 +1,9 @@
 #ifndef __CUDA_SCENE
 #define __CUDA_SCENE
 
+#include <curand.h>
+#include <curand_kernel.h>
+
 struct cudaScene
 {
 	// Geometry
@@ -25,6 +28,7 @@ struct cudaScene
 	int N_light;
 	float *light_pos;
 	float *light_col;
+	float *light_radius;
 	float ambient_light_col[3];
 
 	// Camera
@@ -37,6 +41,8 @@ struct cudaScene
 
 	int width;
 	int height;
+
+	curandState *curand;
 };
 
 #endif

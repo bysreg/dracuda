@@ -2,6 +2,8 @@
 #include "cudaScene.hpp"
 #include "raytracer_cuda.hpp"
 #include "helper_math.h"
+#include <curand.h>
+#include <curand_kernel.h>
 #define EPS 0.0001
 
 inline __host__ __device__ float3 quaternionXvector(float4 q, float3 vec)
@@ -60,6 +62,7 @@ void cudaRayTraceKernel (unsigned char *img)
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 	int w = y * cuScene.width + x;
+	curand_init(1578, w, 0, cuScene.curand + w);
 
 	img[4 * w + 0] = 255;
 	img[4 * w + 1] = 0;
@@ -81,61 +84,106 @@ void cudaRayTraceKernel (unsigned char *img)
 	float3 *pos_ptr = (float3 *)cuScene.position;
 	float4 *rot_ptr = (float4 *)cuScene.rotation;
 	float3 *scl_ptr = (float3 *)cuScene.scale;
-	int geom = -1;
-	float tmin = 10000.0;
 
-	for (int i = 0; i < cuScene.N; i++) {
-		float3 t_ray_d = ray_d;
-		float3 t_ray_e = ray_e - pos_ptr[i];
-		t_ray_d = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_d);
-		t_ray_e = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_e);
-		t_ray_d = t_ray_d / scl_ptr[i];
-		t_ray_e = t_ray_e / scl_ptr[i];
-		// Intersection test
-		float t = intersectionTest(cuScene.type[i], t_ray_d, t_ray_e, i);
-		if (t > EPS && t < tmin) {
-			geom = i;
-			tmin = t;
+	float3 color_mask = make_float3(1.0, 1.0, 1.0);
+	float3 accumulated_color = make_float3(0.0, 0.0, 0.0);
+	for (int bounce = 0; bounce < 5; bounce ++) {
+		int geom = -1;
+		float tmin = 10000.0;
+		float3 averager = make_float3(1.0 / 3, 1.0 / 3, 1.0 / 3);
+
+		for (int i = 0; i < cuScene.N; i++) {
+			float3 t_ray_d = ray_d;
+			float3 t_ray_e = ray_e - pos_ptr[i];
+			t_ray_d = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_d);
+			t_ray_e = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_e);
+			t_ray_d = t_ray_d / scl_ptr[i];
+			t_ray_e = t_ray_e / scl_ptr[i];
+			// Intersection test
+			float t = intersectionTest(cuScene.type[i], t_ray_d, t_ray_e, i);
+			if (t > EPS && t < tmin) {
+				geom = i;
+				tmin = t;
+			}
 		}
-	}
-	float3 color = make_float3(0, 0, 0);
-	if (geom >= 0) {
-		int material = cuScene.material[geom];
-		float3 hit = tmin * ray_d + ray_e - pos_ptr[geom];
-		hit = quaternionXvector(quaternionConjugate(rot_ptr[geom]), hit) / scl_ptr[geom];
-		int type = cuScene.type[geom];
-		float3 normal;
-		// Calc normal
-		if (type == 1) {
-			normal = hit;
-		} else if (type == 2) {
-			float3 v0 = ((float3 *)cuScene.vertex0)[geom];
-			float3 v1 = ((float3 *)cuScene.vertex1)[geom];
-			float3 v2 = ((float3 *)cuScene.vertex2)[geom];
-			normal = cross(v1 - v0, v2 - v0);
+		float3 color = make_float3(0, 0, 0);
+		// Light
+		for (int i = 0; i < cuScene.N_light; i++)
+		{
+			float radius = cuScene.light_radius[i];
+			float3 ray2 = ray_e - ((float3 *)cuScene.light_pos)[i];
+			float A = dot(ray_d, ray_d);
+			float B = dot(ray_d, ray2);
+			float C = dot(ray2, ray2) - radius * radius;
+			float B24AC = B * B - A * C;
+			if (B24AC >= 0) {
+				float SB24AC = sqrt(B24AC);
+				if (B + SB24AC < 0) {
+					color += ((float3 *)cuScene.light_col)[i];
+				}
+			}
+			
 		}
-		// Normal matrix
-		normal = normal / scl_ptr[geom];
-		normal = quaternionXvector(rot_ptr[geom], normal);
-		normal = normalize(normal);
+		if (geom >= 0) {
+			int material = cuScene.material[geom];
+			float3 hit = tmin * ray_d + ray_e - pos_ptr[geom];
+			hit = quaternionXvector(quaternionConjugate(rot_ptr[geom]), hit) / scl_ptr[geom];
+			int type = cuScene.type[geom];
+			float3 normal;
+			// Calc normal
+			if (type == 1) {
+				normal = hit;
+			} else if (type == 2) {
+				float3 v0 = ((float3 *)cuScene.vertex0)[geom];
+				float3 v1 = ((float3 *)cuScene.vertex1)[geom];
+				float3 v2 = ((float3 *)cuScene.vertex2)[geom];
+				normal = cross(v1 - v0, v2 - v0);
+			}
+			// Normal matrix
+			normal = normal / scl_ptr[geom];
+			normal = quaternionXvector(rot_ptr[geom], normal);
+			normal = normalize(normal);
 
+			// Ambient
+			float3 ambient = ((float3 *)cuScene.ambient)[material];
+			color += ambient * (*(float3 *)cuScene.ambient_light_col);
 
-		for (int i = 0; i < cuScene.N_light; i++) {
+			// Russian roulette
 			float3 diffuse = ((float3 *)cuScene.diffuse)[material];
-			float3 light_pos = ((float3 *)cuScene.light_pos)[i];
-			float3 light_dir = normalize(light_pos - hit); 
-			float cos_factor = dot(light_dir, normal);
-			if (cos_factor > 0)
-				color += diffuse * cos_factor;
+			float3 specular = ((float3 *)cuScene.specular)[material];
+			float diffuse_prob = dot(diffuse, averager);
+			float specular_prob = dot(specular, averager);
+			float sum = diffuse_prob + specular_prob;
+			diffuse_prob /= sum;
+			specular_prob /= sum;
+
+			if (curand_uniform(cuScene.curand + w) < diffuse_prob) {
+				// Direct diffuse
+				float3 surface_color = make_float3(0, 0, 0);
+				for (int i = 0; i < cuScene.N_light; i++) {
+					float3 light_pos = ((float3 *)cuScene.light_pos)[i];
+					float3 light_dir = normalize(light_pos - hit); 
+					float cos_factor = dot(light_dir, normal);
+					if (cos_factor > 0)
+						surface_color += diffuse * cos_factor;
+				}
+				color += surface_color;
+				accumulated_color += color * color_mask;
+				color_mask *= surface_color;
+			} else {
+				// Specular
+				accumulated_color += color * color_mask;
+				color_mask *= specular;
+				ray_e = hit;
+				ray_d = ray_d - 2 * normal * dot(normal, ray_d);
+			}
+		} else {
 		}
-		float3 ambient = ((float3 *)cuScene.ambient)[material];
-		color += ambient * (*(float3 *)cuScene.ambient_light_col);
-	} else {
 	}
 	
-	img[4 * w + 0] = clamp(color.x * 255, 0.0, 255.0);
-	img[4 * w + 1] = clamp(color.y * 255, 0.0, 255.0);
-	img[4 * w + 2] = clamp(color.z * 255, 0.0, 255.0);
+	img[4 * w + 0] = clamp(accumulated_color.x * 255, 0.0, 255.0);
+	img[4 * w + 1] = clamp(accumulated_color.y * 255, 0.0, 255.0);
+	img[4 * w + 2] = clamp(accumulated_color.z * 255, 0.0, 255.0);
 	img[4 * w + 3] = 255;
 }
 
