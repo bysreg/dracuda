@@ -56,7 +56,29 @@ __device__ float intersectionTest(int type, float3 ray_d, float3 ray_e, int geom
 	return -1;
 }
 
-#define NSAMPLES 10
+
+__device__ float trace_shadow(float3 ray_e, float3 ray_d, float time)
+{
+	float3 *pos_ptr = (float3 *)cuScene.position;
+	float4 *rot_ptr = (float4 *)cuScene.rotation;
+	float3 *scl_ptr = (float3 *)cuScene.scale;
+	for (int i = 0; i < cuScene.N; i++) {
+		float3 t_ray_d = ray_d;
+		float3 t_ray_e = ray_e - pos_ptr[i];
+		t_ray_d = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_d);
+		t_ray_e = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_e);
+		t_ray_d = t_ray_d / scl_ptr[i];
+		t_ray_e = t_ray_e / scl_ptr[i];
+		// Intersection test
+		float t = intersectionTest(cuScene.type[i], t_ray_d, t_ray_e, i);
+		if (t > EPS && t < time) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+#define NSAMPLES 50
 __global__
 void cudaRayTraceKernel (unsigned char *img)
 {
@@ -113,6 +135,7 @@ void cudaRayTraceKernel (unsigned char *img)
 				tmin = t;
 			}
 		}
+		tmin -= 0.001;
 		float3 color = make_float3(0, 0, 0);
 		// Light
 		for (int i = 0; i < cuScene.N_light; i++)
@@ -150,6 +173,8 @@ void cudaRayTraceKernel (unsigned char *img)
 			normal = normal / scl_ptr[geom];
 			normal = quaternionXvector(rot_ptr[geom], normal);
 			normal = normalize(normal);
+			// Restore hit
+			hit = tmin * ray_d + ray_e;
 
 			// Ambient
 			float3 ambient = ((float3 *)cuScene.ambient)[material];
@@ -169,10 +194,14 @@ void cudaRayTraceKernel (unsigned char *img)
 				float3 surface_color = make_float3(0, 0, 0);
 				for (int i = 0; i < cuScene.N_light; i++) {
 					float3 light_pos = ((float3 *)cuScene.light_pos)[i];
-					float3 light_dir = normalize(light_pos - hit); 
-					float cos_factor = dot(light_dir, normal);
+					float radius = cuScene.light_radius[i];
+					float3 light_dir = light_pos - hit; 
+					float time = sqrt(dot(light_dir, light_dir));
+					float3 light_dir_normalized = light_dir / time;
+					float cos_factor = dot(light_dir_normalized, normal);
+					float shadow_factor = trace_shadow(hit, light_dir, time);
 					if (cos_factor > 0)
-						surface_color += diffuse * cos_factor;
+						surface_color += shadow_factor * diffuse * cos_factor;
 				}
 				color += surface_color;
 				accumulated_color += color * color_mask;
@@ -197,6 +226,8 @@ void cudaRayTraceKernel (unsigned char *img)
 				ray_d = ray_d - 2 * normal * dot(normal, ray_d);
 			}
 		} else {
+			accumulated_color += (*(float3 *)cuScene.ambient_light_col + color) * color_mask;
+			break;
 		}
 	}
 	}
