@@ -21,7 +21,7 @@ inline __host__ __device__ float4 quaternionConjugate(float4 q)
 
 __constant__ cudaScene cuScene;
 
-__device__ float intersectionTest(int type, float3 ray_d, float3 ray_e)
+__device__ float intersectionTest(int type, float3 ray_d, float3 ray_e, int geom)
 {
 	if (type == 1) {
 		float A = dot(ray_d, ray_d);
@@ -32,6 +32,23 @@ __device__ float intersectionTest(int type, float3 ray_d, float3 ray_e)
 			float SB24AC = sqrt(B24AC);
 			return (-B - SB24AC) / A;
 		}
+		return -1;
+	} else if (type == 2) {
+		float3 v0 = ((float3 *)cuScene.vertex0)[geom];
+		float3 v1 = ((float3 *)cuScene.vertex1)[geom];
+		float3 v2 = ((float3 *)cuScene.vertex2)[geom];
+		float3 t1 = cross(v0 - v2, ray_d);
+		float3 t2 = cross(v0 - v1, v0 - ray_e);
+		float detA = dot((v0 - v1) ,  t1);
+		float distance = dot(v2 - v0, t2) / detA;
+		if (distance < EPS)
+			return -1;
+		float beta = dot(v0 - ray_e, t1) / detA;
+		if (beta < 0)
+			return -1;
+		float gamma = dot(ray_d , t2) / detA;
+		if (gamma >= 0 && (beta + gamma) <= 1)
+			return distance;
 		return -1;
 	}
 	return -1;
@@ -75,15 +92,32 @@ void cudaRayTraceKernel (unsigned char *img)
 		t_ray_d = t_ray_d / scl_ptr[i];
 		t_ray_e = t_ray_e / scl_ptr[i];
 		// Intersection test
-		float t = intersectionTest(cuScene.type[i], t_ray_d, t_ray_e);
+		float t = intersectionTest(cuScene.type[i], t_ray_d, t_ray_e, i);
 		if (t > EPS && t < tmin) {
 			geom = i;
 			tmin = t;
 		}
 	}
-	float3 hit = tmin * ray_d + ray_e;
-	float3 normal = normalize(hit - pos_ptr[geom]);
+	float3 hit = tmin * ray_d + ray_e - pos_ptr[geom];
+	hit = quaternionXvector(quaternionConjugate(rot_ptr[geom]), hit) / scl_ptr[geom];
+	int type = cuScene.type[geom];
 	float3 color = make_float3(0, 0, 0);
+	float3 normal;
+	// Calc normal
+	if (type == 1) {
+		normal = hit;
+	} else if (type == 2) {
+		float3 v0 = ((float3 *)cuScene.vertex0)[geom];
+		float3 v1 = ((float3 *)cuScene.vertex1)[geom];
+		float3 v2 = ((float3 *)cuScene.vertex2)[geom];
+		normal = cross(v1 - v0, v2 - v0);
+	}
+	// Normal matrix
+	normal = normal / scl_ptr[geom];
+	normal = quaternionXvector(rot_ptr[geom], normal);
+	normal = normalize(normal);
+
+
 	for (int i = 0; i < cuScene.N_light; i++) {
 		float3 diffuse = ((float3 *)cuScene.diffuse)[cuScene.material[geom]];
 		float3 light_pos = ((float3 *)cuScene.light_pos)[i];

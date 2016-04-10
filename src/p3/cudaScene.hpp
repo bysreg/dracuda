@@ -11,6 +11,9 @@ struct cudaScene
 	int *type; // int * N
 	int *material; // int * N
 	float *radius; // float * N
+	float *vertex0;
+	float *vertex1;
+	float *vertex2;
 
 	// Material
 	int N_material;

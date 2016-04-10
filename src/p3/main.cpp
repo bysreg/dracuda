@@ -198,6 +198,9 @@ bool RaytracerApplication::initialize()
 	gpuErrchk(cudaMalloc((void **)&cscene.ambient, sizeof(float) * 3 * N_material));
 	gpuErrchk(cudaMalloc((void **)&cscene.diffuse, sizeof(float) * 3 * N_material));
 	gpuErrchk(cudaMalloc((void **)&cscene.specular, sizeof(float) * 3 * N_material));
+	gpuErrchk(cudaMalloc((void **)&cscene.vertex0, sizeof(float) * 3 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.vertex1, sizeof(float) * 3 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.vertex2, sizeof(float) * 3 * N));
 
 	// Mirrored host mem
 	cscene_host.position = (float *)malloc(sizeof(float) * 3 * N);
@@ -211,6 +214,9 @@ bool RaytracerApplication::initialize()
 	cscene_host.ambient = (float *)malloc(sizeof(float) * 3 * N_material);
 	cscene_host.diffuse = (float *)malloc(sizeof(float) * 3 * N_material);
 	cscene_host.specular = (float *)malloc(sizeof(float) * 3 * N_material);
+	cscene_host.vertex0 = (float *)malloc(sizeof(float) * 3 * N);
+	cscene_host.vertex1 = (float *)malloc(sizeof(float) * 3 * N);
+	cscene_host.vertex2 = (float *)malloc(sizeof(float) * 3 * N);
 	
 
 	for (size_t i = 0; i < N; i++) {
@@ -220,17 +226,21 @@ bool RaytracerApplication::initialize()
 		g->orientation.to_array(cscene_host.rotation + 4 * i);
 		g->scale.to_array(cscene_host.scale + 3 * i);
 		string type_string = typeid(*g).name();
+			cout << type_string << endl;
 		const Material *primary_material;
-		if (type_string.find("Sphere")) {
+		if (type_string.find("Sphere") != string::npos) {
 			Sphere *s = (Sphere *)g;
 			primary_material = s->material;
-
 			cscene_host.type[i] = 1;
-		} else if (type_string.find("Triangle")) {
+		} else if (type_string.find("Triangle") != string::npos) {
 			Triangle *t = (Triangle *)g;
+			printf("Triangle!\n");
 			cscene_host.type[i] = 2;
 			primary_material = t->vertices[0].material;
-		} else if (type_string.find("Model")) {
+			t->vertices[0].position.to_array(cscene_host.vertex0 + 3 * i);
+			t->vertices[1].position.to_array(cscene_host.vertex1 + 3 * i);
+			t->vertices[2].position.to_array(cscene_host.vertex2 + 3 * i);
+		} else if (type_string.find("Model") != string::npos) {
 			Model *m = (Model *)m;
 			primary_material = m->material;
 			cscene_host.type[i] = 3;
@@ -266,6 +276,9 @@ bool RaytracerApplication::initialize()
 	cudaMemcpy(cscene.ambient, cscene_host.ambient, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.diffuse, cscene_host.diffuse, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.specular, cscene_host.specular, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.vertex0, cscene_host.vertex0, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.vertex1, cscene_host.vertex1, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.vertex2, cscene_host.vertex2, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
 
 	
 	scene.camera.position.to_array(cscene.cam_position);
