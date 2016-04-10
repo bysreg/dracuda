@@ -329,7 +329,7 @@ static void parse_geom_sphere( const MaterialMap& matmap, const TiXmlElement* el
 {
     // parse base
     parse_geom_base( matmap, elem, geom );
-    parse_elem( elem, true,  STR_RADIUS,  &geom->radius );
+    parse_elem( elem, false,  STR_RADIUS,  &geom->radius );
     parse_lookup_data( matmap, elem, STR_MATERIAL, &geom->material );
 }
 

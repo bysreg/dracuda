@@ -13,6 +13,7 @@
 #include "application/opengl.hpp"
 #include "scene/scene.hpp"
 #include "scene/sphere.hpp"
+#include "scene/triangle.hpp"
 #include "p3/raytracer.hpp"
 #include <typeinfo>
 #include "scene/model.hpp"
@@ -183,11 +184,20 @@ bool RaytracerApplication::initialize()
     }
 	// Alloc cuda mem
 	int N = scene.num_geometries();
+	int N_light = scene.num_lights();
+	int N_material = scene.num_materials();
+
 	gpuErrchk(cudaMalloc((void **)&cscene.position, sizeof(float) * 3 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.scale, sizeof(float) * 3 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.rotation, sizeof(float) * 4 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.type, sizeof(int) * 1 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.radius, sizeof(float) * 1 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.material, sizeof(float) * 1 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.light_pos, sizeof(float) * 3 * N_light));
+	gpuErrchk(cudaMalloc((void **)&cscene.light_col, sizeof(float) * 3 * N_light));
+	gpuErrchk(cudaMalloc((void **)&cscene.ambient, sizeof(float) * 3 * N_material));
+	gpuErrchk(cudaMalloc((void **)&cscene.diffuse, sizeof(float) * 3 * N_material));
+	gpuErrchk(cudaMalloc((void **)&cscene.specular, sizeof(float) * 3 * N_material));
 
 	// Mirrored host mem
 	cscene_host.position = (float *)malloc(sizeof(float) * 3 * N);
@@ -195,20 +205,54 @@ bool RaytracerApplication::initialize()
 	cscene_host.scale = (float *)malloc(sizeof(float) * 3 * N);
 	cscene_host.type = (int *)malloc(sizeof(int) * 1 * N);
 	cscene_host.radius = (float *)malloc(sizeof(float) * 1 * N);
+	cscene_host.material = (int *)malloc(sizeof(int) * 1 * N);
+	cscene_host.light_pos = (float *)malloc(sizeof(float) * 3 * N_light);
+	cscene_host.light_col = (float *)malloc(sizeof(float) * 3 * N_light);
+	cscene_host.ambient = (float *)malloc(sizeof(float) * 3 * N_material);
+	cscene_host.diffuse = (float *)malloc(sizeof(float) * 3 * N_material);
+	cscene_host.specular = (float *)malloc(sizeof(float) * 3 * N_material);
 	
 
-	for (size_t i = 0; i < scene.num_geometries(); i++) {
+	for (size_t i = 0; i < N; i++) {
 		Geometry *g = scene.get_geometries()[i];
 		g->post_initialize();
 		g->position.to_array(cscene_host.position + 3 * i);
 		g->orientation.to_array(cscene_host.rotation + 4 * i);
 		g->scale.to_array(cscene_host.scale + 3 * i);
 		string type_string = typeid(*g).name();
+		const Material *primary_material;
 		if (type_string.find("Sphere")) {
 			Sphere *s = (Sphere *)g;
+			primary_material = s->material;
+
 			cscene_host.type[i] = 1;
-			cscene_host.radius[i] = s->radius;
+		} else if (type_string.find("Triangle")) {
+			Triangle *t = (Triangle *)g;
+			cscene_host.type[i] = 2;
+			primary_material = t->vertices[0].material;
+		} else if (type_string.find("Model")) {
+			Model *m = (Model *)m;
+			primary_material = m->material;
+			cscene_host.type[i] = 3;
 		}
+		for (int j = 0; j < N_material; j++) {
+			if (scene.get_materials()[j] == primary_material)
+				cscene_host.material[i] = j;
+		}
+	}
+
+	for (int i = 0; i < N_light; i++) {
+		SphereLight l = scene.get_lights()[i];
+		l.position.to_array(cscene_host.light_pos + 3 * i);
+		l.color.to_array(cscene_host.light_col + 3 * i);
+	}
+
+	for (int i = 0; i < N_material; i++)
+	{
+		Material *m = scene.get_materials()[i];
+		m->ambient.to_array(cscene_host.ambient + 3 * i);
+		m->diffuse.to_array(cscene_host.diffuse + 3 * i);
+		m->specular.to_array(cscene_host.specular + 3 * i);
 	}
 
 	cudaMemcpy(cscene.position, cscene_host.position, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
@@ -216,6 +260,12 @@ bool RaytracerApplication::initialize()
 	cudaMemcpy(cscene.scale, cscene_host.scale, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.type, cscene_host.type, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.radius, cscene_host.radius, sizeof(float) * 1 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.material, cscene_host.material, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.light_pos, cscene_host.light_pos, sizeof(float) * 3 * N_light, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.light_col, cscene_host.light_col, sizeof(float) * 3 * N_light, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.ambient, cscene_host.ambient, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.diffuse, cscene_host.diffuse, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.specular, cscene_host.specular, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
 
 	
 	scene.camera.position.to_array(cscene.cam_position);
@@ -225,6 +275,7 @@ bool RaytracerApplication::initialize()
 	cscene.near_clip = scene.camera.near_clip;
 	cscene.far_clip = scene.camera.far_clip;
 	cscene.N = N;
+	cscene.N_light = N_light;
 
     // set the gl state
     if ( load_gl ) {

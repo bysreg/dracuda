@@ -21,6 +21,21 @@ inline __host__ __device__ float4 quaternionConjugate(float4 q)
 
 __constant__ cudaScene cuScene;
 
+__device__ float intersectionTest(int type, float3 ray_d, float3 ray_e)
+{
+	if (type == 1) {
+		float A = dot(ray_d, ray_d);
+		float B = dot(ray_d, ray_e);
+		float C = dot(ray_e, ray_e) - 1;
+		float B24AC = B * B - A * C;
+		if (B24AC >= 0) {
+			float SB24AC = sqrt(B24AC);
+			return (-B - SB24AC) / A;
+		}
+		return -1;
+	}
+	return -1;
+}
 
 __global__
 void cudaRayTraceKernel (unsigned char *img)
@@ -49,6 +64,9 @@ void cudaRayTraceKernel (unsigned char *img)
 	float3 *pos_ptr = (float3 *)cuScene.position;
 	float4 *rot_ptr = (float4 *)cuScene.rotation;
 	float3 *scl_ptr = (float3 *)cuScene.scale;
+	int geom = -1;
+	float tmin = 10000.0;
+
 	for (int i = 0; i < cuScene.N; i++) {
 		float3 t_ray_d = ray_d;
 		float3 t_ray_e = ray_e - pos_ptr[i];
@@ -56,22 +74,28 @@ void cudaRayTraceKernel (unsigned char *img)
 		t_ray_e = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_e);
 		t_ray_d = t_ray_d / scl_ptr[i];
 		t_ray_e = t_ray_e / scl_ptr[i];
-
-
-		float A = dot(t_ray_d, t_ray_d);
-		float B = dot(2 * t_ray_d, t_ray_e);
-		float C = dot(t_ray_e, t_ray_e) - cuScene.radius[i] * cuScene.radius[i];
-		float B24AC = B * B - 4 * A * C;
-		if (B24AC >= 0) {
-			float SB24AC = sqrt(B24AC);
-			float x1 = (-B + SB24AC) / 2 * A;
-			float x2 = (-B - SB24AC) / 2 * A;
-			if (x1 > EPS || x2 > EPS) {
-				img[4 * w + 0] = 0;
-				break;
-			}
+		// Intersection test
+		float t = intersectionTest(cuScene.type[i], t_ray_d, t_ray_e);
+		if (t > EPS && t < tmin) {
+			geom = i;
+			tmin = t;
 		}
 	}
+	float3 hit = tmin * ray_d + ray_e;
+	float3 normal = normalize(hit - pos_ptr[geom]);
+	float3 color = make_float3(0, 0, 0);
+	for (int i = 0; i < cuScene.N_light; i++) {
+		float3 diffuse = ((float3 *)cuScene.diffuse)[cuScene.material[geom]];
+		float3 light_pos = ((float3 *)cuScene.light_pos)[i];
+		float3 light_dir = normalize(light_pos - hit); 
+		float cos_factor = dot(light_dir, normal);
+		if (cos_factor > 0)
+			color += diffuse * cos_factor;
+	}
+	img[4 * w + 0] = color.x * 255;
+	img[4 * w + 1] = color.y * 255;
+	img[4 * w + 2] = color.z * 255;
+	img[4 * w + 3] = 255;
 }
 
 void cudaRayTrace(cudaScene *scene, unsigned char *img)

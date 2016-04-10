@@ -76,7 +76,7 @@ static void init_sphere()
 }
 
 Sphere::Sphere()
-    : radius(0), material(0) {}
+    : radius(1), material(0) {}
 
 Sphere::~Sphere() {}
 
