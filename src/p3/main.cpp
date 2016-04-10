@@ -283,6 +283,7 @@ bool RaytracerApplication::initialize()
 	
 	scene.camera.position.to_array(cscene.cam_position);
 	scene.camera.orientation.to_array(cscene.cam_orientation);
+	scene.ambient_light.to_array(cscene.ambient_light_col);
 	cscene.fov = scene.camera.fov;
 	cscene.aspect = (dwidth + 0.0) / (dheight + 0.0);
 	cscene.near_clip = scene.camera.near_clip;

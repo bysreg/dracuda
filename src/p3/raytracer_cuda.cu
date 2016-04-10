@@ -98,37 +98,44 @@ void cudaRayTraceKernel (unsigned char *img)
 			tmin = t;
 		}
 	}
-	float3 hit = tmin * ray_d + ray_e - pos_ptr[geom];
-	hit = quaternionXvector(quaternionConjugate(rot_ptr[geom]), hit) / scl_ptr[geom];
-	int type = cuScene.type[geom];
 	float3 color = make_float3(0, 0, 0);
-	float3 normal;
-	// Calc normal
-	if (type == 1) {
-		normal = hit;
-	} else if (type == 2) {
-		float3 v0 = ((float3 *)cuScene.vertex0)[geom];
-		float3 v1 = ((float3 *)cuScene.vertex1)[geom];
-		float3 v2 = ((float3 *)cuScene.vertex2)[geom];
-		normal = cross(v1 - v0, v2 - v0);
-	}
-	// Normal matrix
-	normal = normal / scl_ptr[geom];
-	normal = quaternionXvector(rot_ptr[geom], normal);
-	normal = normalize(normal);
+	if (geom >= 0) {
+		int material = cuScene.material[geom];
+		float3 hit = tmin * ray_d + ray_e - pos_ptr[geom];
+		hit = quaternionXvector(quaternionConjugate(rot_ptr[geom]), hit) / scl_ptr[geom];
+		int type = cuScene.type[geom];
+		float3 normal;
+		// Calc normal
+		if (type == 1) {
+			normal = hit;
+		} else if (type == 2) {
+			float3 v0 = ((float3 *)cuScene.vertex0)[geom];
+			float3 v1 = ((float3 *)cuScene.vertex1)[geom];
+			float3 v2 = ((float3 *)cuScene.vertex2)[geom];
+			normal = cross(v1 - v0, v2 - v0);
+		}
+		// Normal matrix
+		normal = normal / scl_ptr[geom];
+		normal = quaternionXvector(rot_ptr[geom], normal);
+		normal = normalize(normal);
 
 
-	for (int i = 0; i < cuScene.N_light; i++) {
-		float3 diffuse = ((float3 *)cuScene.diffuse)[cuScene.material[geom]];
-		float3 light_pos = ((float3 *)cuScene.light_pos)[i];
-		float3 light_dir = normalize(light_pos - hit); 
-		float cos_factor = dot(light_dir, normal);
-		if (cos_factor > 0)
-			color += diffuse * cos_factor;
+		for (int i = 0; i < cuScene.N_light; i++) {
+			float3 diffuse = ((float3 *)cuScene.diffuse)[material];
+			float3 light_pos = ((float3 *)cuScene.light_pos)[i];
+			float3 light_dir = normalize(light_pos - hit); 
+			float cos_factor = dot(light_dir, normal);
+			if (cos_factor > 0)
+				color += diffuse * cos_factor;
+		}
+		float3 ambient = ((float3 *)cuScene.ambient)[material];
+		color += ambient * (*(float3 *)cuScene.ambient_light_col);
+	} else {
 	}
-	img[4 * w + 0] = color.x * 255;
-	img[4 * w + 1] = color.y * 255;
-	img[4 * w + 2] = color.z * 255;
+	
+	img[4 * w + 0] = clamp(color.x * 255, 0.0, 255.0);
+	img[4 * w + 1] = clamp(color.y * 255, 0.0, 255.0);
+	img[4 * w + 2] = clamp(color.z * 255, 0.0, 255.0);
 	img[4 * w + 3] = 255;
 }
 

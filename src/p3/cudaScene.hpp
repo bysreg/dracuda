@@ -25,6 +25,7 @@ struct cudaScene
 	int N_light;
 	float *light_pos;
 	float *light_col;
+	float ambient_light_col[3];
 
 	// Camera
 	float cam_position[3];
