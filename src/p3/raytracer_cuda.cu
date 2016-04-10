@@ -56,6 +56,7 @@ __device__ float intersectionTest(int type, float3 ray_d, float3 ray_e, int geom
 	return -1;
 }
 
+#define NSAMPLES 10
 __global__
 void cudaRayTraceKernel (unsigned char *img)
 {
@@ -76,8 +77,15 @@ void cudaRayTraceKernel (unsigned char *img)
 	float3 cR = cross(dir, up);
 	float3 cU = cross(cR, dir);
 	float dist = tan(cuScene.fov / 2.0);
-	float di = (x + 0.5) / cuScene.width * 2 - 1;
-	float dj = (y + 0.5) / cuScene.height * 2 - 1;
+	float3 accumulated_color = make_float3(0.0, 0.0, 0.0);
+
+	// Jittered Sampling
+
+	for (int sampleX = 0; sampleX < NSAMPLES; sampleX++)
+		for (int sampleY = 0; sampleY < NSAMPLES; sampleY++) {
+
+	float di = (x + (sampleX + curand_uniform(cuScene.curand + w)) / NSAMPLES) / cuScene.width * 2 - 1;
+	float dj = (y + (sampleY + curand_uniform(cuScene.curand + w)) / NSAMPLES) / cuScene.height * 2 - 1;
 	float3 ray_d = normalize(dir + dist * (dj * cU + di * AR * cR));
 	float3 ray_e = *((float3 *) cuScene.cam_position);
 
@@ -86,7 +94,6 @@ void cudaRayTraceKernel (unsigned char *img)
 	float3 *scl_ptr = (float3 *)cuScene.scale;
 
 	float3 color_mask = make_float3(1.0, 1.0, 1.0);
-	float3 accumulated_color = make_float3(0.0, 0.0, 0.0);
 	for (int bounce = 0; bounce < 5; bounce ++) {
 		int geom = -1;
 		float tmin = 10000.0;
@@ -170,6 +177,18 @@ void cudaRayTraceKernel (unsigned char *img)
 				color += surface_color;
 				accumulated_color += color * color_mask;
 				color_mask *= surface_color;
+				float3 sdir, tdir;
+				// Random direction
+				float u = curand_uniform(cuScene.curand + w);
+				float phi = 2 * 3.1415926535 * curand_uniform(cuScene.curand + w);
+				if (abs(normal.x) < 0.5) {
+					sdir = cross(normal, make_float3(1, 0, 0));
+				} else {
+					sdir = cross(normal, make_float3(0, 1, 0));
+				}
+				tdir = cross(normal, sdir);
+				ray_d = sqrt(u) * (cos(phi) * sdir + sin(phi) * tdir) + sqrt(1 - u) * normal;
+				ray_e = hit;
 			} else {
 				// Specular
 				accumulated_color += color * color_mask;
@@ -180,7 +199,9 @@ void cudaRayTraceKernel (unsigned char *img)
 		} else {
 		}
 	}
+	}
 	
+	accumulated_color /= NSAMPLES * NSAMPLES;
 	img[4 * w + 0] = clamp(accumulated_color.x * 255, 0.0, 255.0);
 	img[4 * w + 1] = clamp(accumulated_color.y * 255, 0.0, 255.0);
 	img[4 * w + 2] = clamp(accumulated_color.z * 255, 0.0, 255.0);
