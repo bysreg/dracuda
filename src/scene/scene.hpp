@@ -95,6 +95,7 @@ public:
 	real_t animation_fps;
 
     bool initialize();
+	bool post_initialize();
 
     // accessor functions
     Geometry* const* get_geometries() const;

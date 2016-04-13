@@ -83,11 +83,16 @@ bool Scene::initialize()
         res &= geometries[i]->initialize();
 	envmap.initialize();
 
+    return res;
+}
+
+bool Scene::post_initialize()
+{
 	if (is_pool){
 		pool_controller.initialize(this);
-	}		
+	}
 
-    return res;
+	return true;
 }
 
 Geometry* const* Scene::get_geometries() const

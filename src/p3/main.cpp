@@ -176,6 +176,8 @@ bool RaytracerApplication::initialize()
 		g->post_initialize();
 	}
 
+	scene.post_initialize();
+
     // set the gl state
     if ( load_gl ) {
         float arr[4];
