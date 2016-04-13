@@ -9,6 +9,7 @@
 #define _462_SCENE_TRIANGLE_HPP_
 
 #include "scene/geometry.hpp"
+#include "scene/bound.hpp"
 
 namespace _462 {
 
@@ -44,6 +45,11 @@ public:
     Triangle();
     virtual ~Triangle();
     virtual void render() const;
+
+	
+	//physics
+	Bound boundBox;
+	Bound createBoundingBox();
 };
 
 

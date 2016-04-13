@@ -113,6 +113,9 @@ public:
     // the camera
     CameraRoamControl camera_control;
 
+	bool pause;
+	real_t speed;
+
     // the image buffer for raytracing
     unsigned char* buffer = 0;
 	unsigned char* animation_buffer = 0;
@@ -136,6 +139,9 @@ bool RaytracerApplication::initialize()
     // copy camera into camera control so it can be moved via mouse
     camera_control.camera = scene.camera;
     bool load_gl = options.open_window;
+
+	pause = false;
+	speed = 1.0;
 
     try {
 
@@ -224,6 +230,18 @@ void RaytracerApplication::update( real_t delta_time )
         camera_control.update( delta_time );
         scene.camera = camera_control.camera;
     }
+
+	// physics
+	static const size_t NUM_ITER = 20;
+
+	// step the physics simulation
+	if (!pause) {
+		real_t step_size = delta_time / NUM_ITER;
+		for (size_t i = 0; i < NUM_ITER; i++) {
+			scene.update(step_size * speed);
+		}
+	}
+
 	animation_time += delta_time;
 }
 
@@ -283,6 +301,8 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
     if ( !raytracing ) {
         camera_control.handle_event( this, event );
     }
+
+	scene.handle_event(event);
 
     switch ( event.type )
     {

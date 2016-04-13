@@ -14,6 +14,8 @@
 
 namespace _462 {
 
+class MeshTree;
+
 /**
  * A mesh of triangles.
  */
@@ -25,6 +27,9 @@ public:
     const Material* material;
 	Bound bound;
 	KDTree *kdtree;
+
+	// physics
+	const MeshTree *tree;
 
     Model();
     virtual ~Model();

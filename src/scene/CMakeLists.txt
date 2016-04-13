@@ -1,2 +1,2 @@
 add_library(scene material.cpp material.hpp mesh.cpp mesh.hpp model.cpp model.hpp scene.cpp scene.hpp sphere.cpp sphere.hpp
-            triangle.cpp triangle.hpp ray.cpp ray.hpp meshtree.cpp meshtree.hpp texture.cpp texture.hpp bound.cpp bound.hpp utils.cpp utils.hpp csg.cpp csg.hpp csgintervals.cpp csgintervals.hpp envmap.cpp envmap.hpp kdtree.cpp kdtree.hpp animator.cpp animator.hpp)
+            triangle.cpp triangle.hpp ray.cpp ray.hpp meshtree.cpp meshtree.hpp texture.cpp texture.hpp bound.cpp bound.hpp utils.cpp utils.hpp csg.cpp csg.hpp csgintervals.cpp csgintervals.hpp envmap.cpp envmap.hpp kdtree.cpp kdtree.hpp animator.cpp animator.hpp pool_controller.cpp pool_controller.hpp)

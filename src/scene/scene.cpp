@@ -57,7 +57,7 @@ Vector3 SphereLight::sample() const
 }
 
 
-Scene::Scene()
+Scene::Scene() : is_pool(false)
 {
     reset();
 }
@@ -73,6 +73,11 @@ bool Scene::initialize()
     for (unsigned int i = 0; i < num_geometries(); i++)
         res &= geometries[i]->initialize();
 	envmap.initialize();
+
+	if (is_pool){
+		pool_controller.initialize(this);
+	}		
+
     return res;
 }
 
@@ -116,6 +121,11 @@ size_t Scene::num_meshes() const
     return meshes.size();
 }
 
+Physics* Scene::get_physics()
+{
+	return &phys;
+}
+
 Animator* const* Scene::get_animators() const
 {
 	return animators.empty() ? NULL : &animators[0];
@@ -144,6 +154,9 @@ void Scene::reset()
     point_lights.clear();
 
     camera = Camera();
+
+	phys = Physics();
+	pool_controller = PoolController();
 
     background_color = Color3::Black();
     ambient_light = Color3::Black();
@@ -181,6 +194,18 @@ void Scene::update_animation(real_t time)
 	for (unsigned int i = 0; i < num_animators(); i++)
 		animators[i]->update(time);
 }
+
+void Scene::update(real_t dt)
+{
+	phys.step(dt);
+	pool_controller.update(dt, is_pool);
+}
+
+void Scene::handle_event(const SDL_Event& event)
+{
+	pool_controller.handle_event(event, is_pool);
+}
+
 
 } /* _462 */
 
