@@ -12,9 +12,16 @@
 #include "application/scene_loader.hpp"
 #include "application/opengl.hpp"
 #include "scene/scene.hpp"
+#include "scene/sphere.hpp"
+#include "scene/triangle.hpp"
 #include "p3/raytracer.hpp"
 #include <typeinfo>
 #include "scene/model.hpp"
+#include "cudaScene.hpp"
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <curand.h>
+#include "raytracer_cuda.hpp"
 
 #include <SDL.h>
 
@@ -22,12 +29,20 @@
 #include <iostream>
 #include <cstring>
 
+cudaScene cscene;
+cudaScene cscene_host;
+using namespace std;
+
+unsigned char *cimg;
+
 namespace _462 {
 
 
 //default size of the image in the window
 #define DEFAULT_WIDTH 800
 #define DEFAULT_HEIGHT 600
+#define dwidth 800
+#define dheight 600
 
 #define BUFFER_SIZE(w,h) ( (size_t) ( 4 * (w) * (h) ) )
 
@@ -41,6 +56,8 @@ namespace _462 {
 #define KEY_START_ANIMATION SDLK_y
 
 #define KEY_MOTION_BLUR SDLK_u
+
+#define KEY_RAYTRACE_GPU SDLK_g
 
 
 // pretty sure these are sequential, but use an array just in case
@@ -98,6 +115,7 @@ public:
 	void start_animation(int width, int height);
 	void start_motion_blur(int width, int height);
 	void output_animation( int width, int height , const char *prefix);
+	void do_gpu_raytracing();
 
     // writes the current raytrace buffer to the output file
     void output_image();
@@ -128,6 +146,7 @@ public:
     // if so, we raytrace and display the raytrace.
     // if false, we use normal gl rendering
     bool raytracing;
+	bool gpu_raytracing;
     // false if there is more raytracing to do
     bool raytrace_finished;
 	real_t animation_time = 0;
@@ -170,13 +189,121 @@ bool RaytracerApplication::initialize()
         std::cout << "Out of memory error while initializing scene\n.";
         return false;
     }
+	// Alloc cuda mem
+	int N = scene.num_geometries();
+	int N_light = scene.num_lights();
+	int N_material = scene.num_materials();
 
-	for (size_t i = 0; i < scene.num_geometries(); i++) {
+	gpuErrchk(cudaMalloc((void **)&cscene.position, sizeof(float) * 3 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.scale, sizeof(float) * 3 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.rotation, sizeof(float) * 4 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.type, sizeof(int) * 1 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.radius, sizeof(float) * 1 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.material, sizeof(float) * 1 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.light_pos, sizeof(float) * 3 * N_light));
+	gpuErrchk(cudaMalloc((void **)&cscene.light_col, sizeof(float) * 3 * N_light));
+	gpuErrchk(cudaMalloc((void **)&cscene.light_radius, sizeof(float) * 1 * N_light));
+	gpuErrchk(cudaMalloc((void **)&cscene.ambient, sizeof(float) * 3 * N_material));
+	gpuErrchk(cudaMalloc((void **)&cscene.diffuse, sizeof(float) * 3 * N_material));
+	gpuErrchk(cudaMalloc((void **)&cscene.specular, sizeof(float) * 3 * N_material));
+	gpuErrchk(cudaMalloc((void **)&cscene.vertex0, sizeof(float) * 3 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.vertex1, sizeof(float) * 3 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.vertex2, sizeof(float) * 3 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.curand, sizeof(curandState) * dwidth * dheight));
+
+	// Mirrored host mem
+	cscene_host.position = (float *)malloc(sizeof(float) * 3 * N);
+	cscene_host.rotation = (float *)malloc(sizeof(float) * 4 * N);
+	cscene_host.scale = (float *)malloc(sizeof(float) * 3 * N);
+	cscene_host.type = (int *)malloc(sizeof(int) * 1 * N);
+	cscene_host.radius = (float *)malloc(sizeof(float) * 1 * N);
+	cscene_host.material = (int *)malloc(sizeof(int) * 1 * N);
+	cscene_host.light_pos = (float *)malloc(sizeof(float) * 3 * N_light);
+	cscene_host.light_col = (float *)malloc(sizeof(float) * 3 * N_light);
+	cscene_host.light_radius = (float *)malloc(sizeof(float) * 1 * N_light);
+	cscene_host.ambient = (float *)malloc(sizeof(float) * 3 * N_material);
+	cscene_host.diffuse = (float *)malloc(sizeof(float) * 3 * N_material);
+	cscene_host.specular = (float *)malloc(sizeof(float) * 3 * N_material);
+	cscene_host.vertex0 = (float *)malloc(sizeof(float) * 3 * N);
+	cscene_host.vertex1 = (float *)malloc(sizeof(float) * 3 * N);
+	cscene_host.vertex2 = (float *)malloc(sizeof(float) * 3 * N);
+	
+
+	for (size_t i = 0; i < N; i++) {
 		Geometry *g = scene.get_geometries()[i];
 		g->post_initialize();
+		g->position.to_array(cscene_host.position + 3 * i);
+		g->orientation.to_array(cscene_host.rotation + 4 * i);
+		g->scale.to_array(cscene_host.scale + 3 * i);
+		string type_string = typeid(*g).name();
+			cout << type_string << endl;
+		const Material *primary_material;
+		if (type_string.find("Sphere") != string::npos) {
+			Sphere *s = (Sphere *)g;
+			primary_material = s->material;
+			cscene_host.type[i] = 1;
+		} else if (type_string.find("Triangle") != string::npos) {
+			Triangle *t = (Triangle *)g;
+			cscene_host.type[i] = 2;
+			primary_material = t->vertices[0].material;
+			t->vertices[0].position.to_array(cscene_host.vertex0 + 3 * i);
+			t->vertices[1].position.to_array(cscene_host.vertex1 + 3 * i);
+			t->vertices[2].position.to_array(cscene_host.vertex2 + 3 * i);
+		} else if (type_string.find("Model") != string::npos) {
+			Model *m = (Model *)m;
+			primary_material = m->material;
+			cscene_host.type[i] = 3;
+		}
+		for (int j = 0; j < N_material; j++) {
+			if (scene.get_materials()[j] == primary_material)
+				cscene_host.material[i] = j;
+		}
 	}
 
 	scene.post_initialize();
+
+	for (int i = 0; i < N_light; i++) {
+		SphereLight l = scene.get_lights()[i];
+		l.position.to_array(cscene_host.light_pos + 3 * i);
+		l.color.to_array(cscene_host.light_col + 3 * i);
+		cscene_host.light_radius[i] = l.radius;
+	}
+
+	for (int i = 0; i < N_material; i++)
+	{
+		Material *m = scene.get_materials()[i];
+		m->ambient.to_array(cscene_host.ambient + 3 * i);
+		m->diffuse.to_array(cscene_host.diffuse + 3 * i);
+		m->specular.to_array(cscene_host.specular + 3 * i);
+	}
+
+	cudaMemcpy(cscene.position, cscene_host.position, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.rotation, cscene_host.rotation, sizeof(float) * 4 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.scale, cscene_host.scale, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.type, cscene_host.type, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.radius, cscene_host.radius, sizeof(float) * 1 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.material, cscene_host.material, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.light_pos, cscene_host.light_pos, sizeof(float) * 3 * N_light, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.light_col, cscene_host.light_col, sizeof(float) * 3 * N_light, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.light_radius, cscene_host.light_radius, sizeof(float) * 1 * N_light, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.ambient, cscene_host.ambient, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.diffuse, cscene_host.diffuse, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.specular, cscene_host.specular, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.vertex0, cscene_host.vertex0, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.vertex1, cscene_host.vertex1, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.vertex2, cscene_host.vertex2, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
+
+	
+	scene.camera.position.to_array(cscene.cam_position);
+	scene.camera.orientation.to_array(cscene.cam_orientation);
+	scene.ambient_light.to_array(cscene.ambient_light_col);
+	cscene.fov = scene.camera.fov;
+	cscene.aspect = (dwidth + 0.0) / (dheight + 0.0);
+	cscene.near_clip = scene.camera.near_clip;
+	cscene.far_clip = scene.camera.far_clip;
+	cscene.N = N;
+	cscene.N_light = N_light;
+	cscene.N_material = N_material;
 
     // set the gl state
     if ( load_gl ) {
@@ -211,6 +338,9 @@ bool RaytracerApplication::initialize()
 
         glLightModeli( GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE );
     }
+	// CUDA part
+	gpuErrchk(cudaMalloc((void **)&cimg, 4 * dheight * dwidth));
+	
 
     return true;
 }
@@ -221,6 +351,9 @@ void RaytracerApplication::destroy()
 
 void RaytracerApplication::update( real_t delta_time )
 {
+	if ( gpu_raytracing) {
+		return ;
+	}
     if ( raytracing ) {
         // do part of the raytrace
         if ( !raytrace_finished ) {
@@ -280,7 +413,7 @@ void RaytracerApplication::render()
 			current_frame = 0;
         glDrawPixels( buf_width, buf_height, GL_RGBA,
               GL_UNSIGNED_BYTE, animation_buffer + current_frame * BUFFER_SIZE(buf_width, buf_height) );
-	} else if ( raytracing ) {
+	} else if ( raytracing || gpu_raytracing) {
         // if raytracing, just display the buffer
         assert( buffer );
         glColor4d( 1.0, 1.0, 1.0, 1.0 );
@@ -315,10 +448,13 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
             get_dimension( &width, &height );
             toggle_raytracing( width, height );
             break;
+		case KEY_RAYTRACE_GPU:
+			do_gpu_raytracing();
+			break;
         case KEY_SEND_PHOTONS:
             raytracer.initialize(&scene, options.num_samples, 0, 0);
             queue_render_photon=true;
-            
+			break;
         case KEY_SCREENSHOT:
             output_image();
             break;
@@ -331,8 +467,11 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
 		case KEY_MOTION_BLUR:
 			get_dimension(&width, &height);
 			start_motion_blur(width, height);
+<<<<<<< HEAD
 		case SDLK_SPACE:
 			pause = !pause;
+=======
+>>>>>>> master
 			break;
         default:
             break;
@@ -489,6 +628,24 @@ void RaytracerApplication::toggle_raytracing( int width, int height )
     raytracing = !raytracing;
 }
 
+void RaytracerApplication::do_gpu_raytracing()
+{
+	int width = DEFAULT_WIDTH;
+	int height = DEFAULT_HEIGHT;
+	buf_width = width;
+	buf_height = height;
+	if (!buffer) {
+		buffer = new unsigned char [width * height * 4];
+	}
+
+	cscene.width = width;
+	cscene.height = height;
+	gpu_raytracing = true;
+	cudaRayTrace(&cscene, cimg);
+        std::cout << "No image to output.\n";
+
+	gpuErrchk(cudaMemcpy(buffer, cimg, 4 * dwidth * dheight, cudaMemcpyDeviceToHost));
+}
 void RaytracerApplication::output_image()
 {
     static const size_t MAX_LEN = 256;
