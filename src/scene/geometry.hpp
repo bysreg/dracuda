@@ -70,7 +70,7 @@ public:
 	virtual void bump_normal(Intersection &intersection) const = 0;
 
     virtual bool initialize();
-    virtual bool post_initialize() = 0;
+    virtual bool post_initialize();
 };
 }
 #endif

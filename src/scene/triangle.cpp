@@ -41,6 +41,8 @@ real_t Triangle::intersect_ray(Ray &ray, Intersection &intersection) const
 
 bool Triangle::post_initialize()
 {
+	Geometry::post_initialize();
+
 	// create bounding box
 	boundBox = createBoundingBox();
 

@@ -45,6 +45,8 @@ bool Model::initialize()
 
 bool Model::post_initialize()
 {
+	Geometry::post_initialize();
+
 	calculate_bound();
 	kdtree = new KDTree(mesh, bound);
 
