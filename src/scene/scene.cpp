@@ -32,6 +32,7 @@ bool Geometry::initialize()
     make_normal_matrix(&normMat, mat);
     return true;
 }
+
 SphereLight::SphereLight():
     position(Vector3::Zero()),
     color(Color3::White()),

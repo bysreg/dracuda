@@ -18,6 +18,7 @@
 #include <sstream>
 #include <limits>
 
+#include "scene/meshtree.hpp"
 
 namespace _462 {
 
@@ -46,6 +47,12 @@ bool Model::post_initialize()
 {
 	calculate_bound();
 	kdtree = new KDTree(mesh, bound);
+
+	// create tree
+	std::cout << "Start creating Tree" << std::endl;
+	tree = new MeshTree(mesh, mat);
+	std::cout << "Done creating Tree" << std::endl;
+
 	return true;
 }
 
