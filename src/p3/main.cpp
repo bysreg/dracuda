@@ -467,11 +467,9 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
 		case KEY_MOTION_BLUR:
 			get_dimension(&width, &height);
 			start_motion_blur(width, height);
-<<<<<<< HEAD
+			break;
 		case SDLK_SPACE:
 			pause = !pause;
-=======
->>>>>>> master
 			break;
         default:
             break;
