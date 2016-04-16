@@ -97,6 +97,8 @@ real_t Sphere::intersect_ray(Ray &ray, Intersection &intersection) const
 
 bool Sphere::post_initialize()
 {
+	Geometry::post_initialize();
+
 	return true;
 }
 

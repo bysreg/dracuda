@@ -15,6 +15,7 @@
 #include "scene/envmap.hpp"
 #include "tinyxml/tinyxml.h"
 
+#include "p3/physics.hpp"
 
 #include <iostream>
 #include <map>
@@ -37,6 +38,8 @@ typedef std::map< const char*, const Material*, StrCompare > MaterialMap;
 typedef std::map< const char*, const Mesh*, StrCompare > MeshMap;
 // map from strings to triangle vertices
 typedef std::map< const char*, Triangle::Vertex, StrCompare > TriVertMap;
+// map ints to bodies (physics)
+typedef std::map< int, Body* > BodyMap;
 
 static const char STR_FOV[] = "fov";
 static const char STR_NEAR[] = "near_clip";
@@ -83,6 +86,31 @@ static const char STR_GLOSSY_ENABLED[] = "glossy_enabled";
 static const char STR_DOF_ENABLED[] = "depth_of_field_enabled";
 static const char STR_SPECULAR_ENABLED[] = "specular_highlight_enabled";
 static const char STR_BUMP_ENABLED[] = "bump_map_enabled";
+
+static const char STR_BODY[] = "body";
+static const char STR_ID[] = "id";
+static const char STR_SPHEREBODY[] = "sphere_body";
+static const char STR_TRIANGLEBODY[] = "triangle_body";
+static const char STR_PLANEBODY[] = "plane_body";
+static const char STR_POINTA[] = "point_a";
+static const char STR_POINTB[] = "point_b";
+static const char STR_POINTC[] = "point_c";
+static const char STR_BODY1[] = "body1";
+static const char STR_BODY1OFFSET[] = "body1_offset";
+static const char STR_BODY2[] = "body2";
+static const char STR_BODY2OFFSET[] = "body2_offset";
+static const char STR_MASS[] = "mass";
+static const char STR_VELOCITY[] = "velocity";
+static const char STR_ANGULARVELOCITY[] = "angular_velocity";
+static const char STR_GRAVITY[] = "gravity";
+static const char STR_SPRING[] = "spring";
+static const char STR_CONSTANT[] = "constant";
+static const char STR_EQUILIBRIUM[] = "equilibrium";
+static const char STR_OFFSET1[] = "offset1";
+static const char STR_OFFSET2[] = "offset2";
+static const char STR_COLLISIONDAMPING[] = "collision_damping";
+static const char STR_DAMPING[] = "damping";
+static const char STR_POOL[] = "pool";
     
 static void print_error_header( const TiXmlElement* base )
 {
@@ -179,7 +207,23 @@ template<> void parse_elem< real_t >( const TiXmlElement* elem, real_t* d )
 
 template<> void parse_elem< int >(const TiXmlElement *elem, int *d)
 {
-    parse_attrib_int( elem, true, "v", d );
+	try{
+		parse_attrib_int(elem, true, "v", d);
+	}
+	catch (...) {
+		parse_attrib_int(elem, true, "i", d);
+	}
+}
+
+template<> void parse_elem<bool>(const TiXmlElement *elem, bool* boolean) {
+	std::string s;
+	parse_attrib_string(elem, true, "v", &s);
+	if (s == "true") {
+		*boolean = true;
+	}
+	else{
+		*boolean = false;
+	}
 }
 
 template<> void parse_elem< Color3 >( const TiXmlElement* elem, Color3* color )
@@ -323,49 +367,6 @@ static void parse_geom_base( const MaterialMap& /*matmap*/, const TiXmlElement* 
     geom->orientation = normalize( ori );
 }
 
-
-
-static void parse_geom_sphere( const MaterialMap& matmap, const TiXmlElement* elem, Sphere* geom )
-{
-    // parse base
-    parse_geom_base( matmap, elem, geom );
-    parse_elem( elem, false,  STR_RADIUS,  &geom->radius );
-    parse_lookup_data( matmap, elem, STR_MATERIAL, &geom->material );
-}
-
-static void parse_geom_triangle( const MaterialMap& matmap, const TriVertMap& tvmap, const TiXmlElement* elem, Triangle* geom )
-{
-    parse_geom_base( matmap, elem, geom );
-
-    const TiXmlElement* child = elem->FirstChildElement( STR_VERTEX );
-    size_t count = 0;
-    while ( child ) {
-        if ( count > 2 ) {
-            print_error_header( child );
-            std::cout << "To many vertices for triangle.\n";
-            throw std::exception();
-        }
-
-        parse_lookup_data( tvmap, child, STR_NAME, &geom->vertices[count] );
-
-        child = child->NextSiblingElement( STR_VERTEX );
-        count++;
-    }
-
-    if ( count < 2 ) {
-        print_error_header( elem );
-        std::cout << "To few vertices for triangle.\n";
-        throw std::exception();
-    }
-}
-
-static void parse_geom_model( const MaterialMap& matmap, const MeshMap& meshmap, const TiXmlElement* elem, Model* geom )
-{
-    parse_geom_base( matmap, elem, geom );
-    parse_lookup_data( meshmap, elem, STR_MESH, &geom->mesh );
-    parse_lookup_data( matmap, elem, STR_MATERIAL, &geom->material );
-}
-
 static void check_mem( void* ptr )
 {
     if ( !ptr ) {
@@ -374,39 +375,158 @@ static void check_mem( void* ptr )
     }
 }
 
-static int parse_csg_operation(const MaterialMap& matmap, const MeshMap &meshmap, const TriVertMap &trivertmap, CSG *csg, const TiXmlElement *elem);
+static void parse_trianglebody(const TiXmlElement* elem, TriangleBody* body)
+{
+	parse_elem(elem, true, STR_ID, &body->id);
+	parse_elem(elem, false, STR_POINTA, &body->vertices[0]);
+	parse_elem(elem, false, STR_POINTB, &body->vertices[1]);
+	parse_elem(elem, false, STR_POINTC, &body->vertices[2]);
+	body->position = body->vertices[0];
+}
 
-static int parse_csg_child(const MaterialMap &materials, const MeshMap &meshes, const TriVertMap &triverts, CSG *csg, const TiXmlElement *child)
+static void parse_planebody(BodyMap& bodies, const TiXmlElement* elem, PlaneBody* body)
+{
+	parse_elem(elem, true, STR_ID, &body->id);
+	parse_elem(elem, true, STR_POSITION, &body->position);
+	parse_elem(elem, true, STR_NORMAL, &body->normal);
+	bodies[body->id] = body;
+}
+
+static void parse_modelbody(const TiXmlElement* elem, ModelBody* body)
+{
+	parse_elem(elem, true, STR_ID, &body->id);
+	parse_elem(elem, false, STR_POSITION, &body->position);
+	parse_elem(elem, false, STR_ORIENT, &body->orientation);
+}
+
+static void parse_spherebody(const TiXmlElement* elem, SphereBody* body)
+{
+	parse_elem(elem, true, STR_ID, &body->id);
+	parse_elem(elem, true, STR_MASS, &body->mass);
+	parse_elem(elem, false, STR_POSITION, &body->position);
+	parse_elem(elem, false, STR_RADIUS, &body->radius);
+	parse_elem(elem, false, STR_VELOCITY, &body->velocity);
+	parse_elem(elem, false, STR_ANGULARVELOCITY, &body->angular_velocity);
+	parse_elem(elem, false, STR_ORIENT, &body->orientation);
+}
+
+static void parse_geom_sphere(const MaterialMap& matmap, BodyMap& bodies, Physics* phys, const TiXmlElement* elem, Sphere* geom)
+{
+	// parse base
+	parse_geom_base(matmap, elem, geom);
+	parse_elem(elem, false, STR_RADIUS, &geom->radius);
+	parse_lookup_data(matmap, elem, STR_MATERIAL, &geom->material);
+
+	// physics
+	const TiXmlElement* child = elem->FirstChildElement(STR_BODY);
+	if (child) {
+		SphereBody* body = new SphereBody(geom);
+		check_mem(body);
+		parse_spherebody(child, body);
+		bodies[body->id] = body;
+		phys->add_sphere(body);
+	}
+}
+
+static void parse_geom_triangle(const MaterialMap& matmap, const TriVertMap& tvmap, BodyMap& bodies, Physics* phys, const TiXmlElement* elem, Triangle* geom)
+{
+	parse_geom_base(matmap, elem, geom);
+
+	const TiXmlElement* child = elem->FirstChildElement(STR_VERTEX);
+	size_t count = 0;
+	while (child) {
+		if (count > 2) {
+			print_error_header(child);
+			std::cout << "To many vertices for triangle.\n";
+			throw std::exception();
+		}
+
+		parse_lookup_data(tvmap, child, STR_NAME, &geom->vertices[count]);
+
+		child = child->NextSiblingElement(STR_VERTEX);
+		count++;
+	}
+
+	if (count < 2) {
+		print_error_header(elem);
+		std::cout << "To few vertices for triangle.\n";
+		throw std::exception();
+	}
+
+	child = elem->FirstChildElement(STR_BODY);
+	if (child) {
+		TriangleBody* body = new TriangleBody(geom);
+		check_mem(body);
+		parse_trianglebody(child, body);
+		bodies[body->id] = body;
+		phys->add_triangle(body);
+	}
+}
+
+static void parse_geom_model(const MaterialMap& matmap, const MeshMap& meshmap, BodyMap& bodies, Physics* phys, const TiXmlElement* elem, Model* geom)
+{
+	parse_geom_base(matmap, elem, geom);
+	parse_lookup_data(meshmap, elem, STR_MESH, &geom->mesh);
+	parse_lookup_data(matmap, elem, STR_MATERIAL, &geom->material);
+
+	const TiXmlElement* child = elem->FirstChildElement(STR_BODY);
+	if (child) {
+		ModelBody* body = new ModelBody(geom);
+		check_mem(body);
+		parse_modelbody(child, body);
+		bodies[body->id] = body;
+		phys->add_model(body);
+	}
+}
+
+static void parse_spring(BodyMap& bmap, const TiXmlElement* elem, Spring* spring)
+{
+	int id;
+	parse_elem(elem, true, STR_CONSTANT, &spring->constant);
+	parse_elem(elem, true, STR_EQUILIBRIUM, &spring->equilibrium);
+	parse_elem(elem, true, STR_BODY1, &id);
+	spring->body1 = bmap[id];
+	parse_elem(elem, false, STR_OFFSET1, &spring->body1_offset);
+	parse_elem(elem, true, STR_BODY2, &id);
+	spring->body2 = bmap[id];
+	parse_elem(elem, false, STR_OFFSET2, &spring->body2_offset);
+	parse_elem(elem, false, STR_DAMPING, &spring->damping);
+}
+
+
+static int parse_csg_operation(const MaterialMap& matmap, const MeshMap &meshmap, const TriVertMap &trivertmap, CSG *csg, const TiXmlElement *elem, BodyMap& bodies, Scene* scene);
+
+static int parse_csg_child(const MaterialMap &materials, const MeshMap &meshes, const TriVertMap &triverts, CSG *csg, const TiXmlElement *child, BodyMap& bodies, Scene* scene)
 {
 	const char *value = child->Value();
 	if (!strcmp(value, STR_OPERATION)) {
-		return parse_csg_operation(materials, meshes, triverts, csg, child);
+		return parse_csg_operation(materials, meshes, triverts, csg, child, bodies, scene);
 	}
 	int node_ID = csg->new_node();
 	CSGNode &node = csg->nodes[node_ID];
 	if (!strcmp(value, STR_MODEL)) {
 		Model* model = new Model();
 		check_mem( model );
-		parse_geom_model( materials, meshes, child, model );
+		parse_geom_model(materials, meshes, bodies, scene->get_physics(), child, model);
 		node.g = model;
 		csg->geometries.push_back(model);
 	} else if (!strcmp(value, STR_SPHERE)) {
 		Sphere* sphere = new Sphere();
 		check_mem( sphere );
-		parse_geom_sphere( materials, child, sphere );
+		parse_geom_sphere(materials, bodies, scene->get_physics(), child, sphere);
 		node.g = sphere;
 		csg->geometries.push_back(sphere);
 	} else if (!strcmp(value, STR_TRIANGLE)) {
 		Triangle* triangle = new Triangle();
 		check_mem( triangle );
-		parse_geom_triangle( materials, triverts, child, triangle );
+		parse_geom_triangle(materials, triverts, bodies, scene->get_physics(), child, triangle);
 		node.g = triangle;
 		csg->geometries.push_back(triangle);
 	}
 	return node_ID;
 }
 
-static int parse_csg_operation(const MaterialMap& matmap, const MeshMap &meshmap, const TriVertMap &trivertmap, CSG *csg, const TiXmlElement *elem)
+static int parse_csg_operation(const MaterialMap& matmap, const MeshMap &meshmap, const TriVertMap &trivertmap, CSG *csg, const TiXmlElement *elem, BodyMap& bodies, Scene* scene)
 {
 	int node_ID = csg->new_node();
 	CSGNode& node = csg->nodes[node_ID];
@@ -422,18 +542,18 @@ static int parse_csg_operation(const MaterialMap& matmap, const MeshMap &meshmap
 	const TiXmlElement *child1 = elem->FirstChildElement();
 	const TiXmlElement *child2 = child1->NextSiblingElement();
 	int ret;
-	ret = parse_csg_child(matmap, meshmap, trivertmap, csg, child1);
+	ret = parse_csg_child(matmap, meshmap, trivertmap, csg, child1, bodies, scene);
 	csg->nodes[node_ID].left = ret;
-	ret = parse_csg_child(matmap, meshmap, trivertmap, csg, child2);
+	ret = parse_csg_child(matmap, meshmap, trivertmap, csg, child2, bodies, scene);
 	csg->nodes[node_ID].right = ret;
 	return node_ID;
 }
 
-static void parse_geom_csg( const MaterialMap& matmap, const MeshMap &meshmap, const TriVertMap &trivertmap, const TiXmlElement *elem, CSG* geom)
+static void parse_geom_csg( const MaterialMap& matmap, const MeshMap &meshmap, const TriVertMap &trivertmap, const TiXmlElement *elem, CSG* geom, BodyMap& bodies, Scene* scene)
 {
     parse_geom_base( matmap, elem, geom );
 	const TiXmlElement *root = elem->FirstChildElement( STR_OPERATION );
-	parse_csg_operation(matmap, meshmap, trivertmap, geom, root);
+	parse_csg_operation(matmap, meshmap, trivertmap, geom, root, bodies, scene);
 }
 
 static void parse_and_add_animator(const TiXmlElement *elem, Scene *scene, Geometry *g)
@@ -458,6 +578,7 @@ bool load_scene( Scene* scene, const char* filename )
     MaterialMap materials;
     MeshMap meshes;
     TriVertMap triverts;
+	BodyMap bodies;
 
     assert( scene );
 
@@ -492,6 +613,9 @@ bool load_scene( Scene* scene, const char* filename )
         // parse ambient light
         parse_elem( root, false, STR_AMLIGHT, &scene->ambient_light );
 
+		// is this pool or not
+		parse_elem(root, false, STR_POOL, &scene->is_pool);
+
 		parse_elem( root, false, STR_APERTURE, &scene->aperture);
 		parse_elem( root, false, STR_FOCUS, &scene->focus);
 		parse_elem( root, false, STR_DOFSAMPLES, &scene->dof_samples);
@@ -502,8 +626,21 @@ bool load_scene( Scene* scene, const char* filename )
 		parse_elem( root, false, STR_DOF_ENABLED, &scene->depth_of_field_enabled);
 		parse_elem( root, false, STR_SPECULAR_ENABLED, &scene->specular_highlight_enabled);
 		parse_elem( root, false, STR_BUMP_ENABLED, &scene->bump_map_enabled);
+
+		//physics
+		// parse gravitational constant
+		parse_elem(root, false, STR_GRAVITY, &scene->get_physics()->gravity);
+		// parse damping constants
+		parse_elem(root, false, STR_COLLISIONDAMPING, &scene->get_physics()->collision_damping);
+
 		if (scene->animation_duration > 0)
 			scene->animated = true;
+
+		// physics
+		// parse gravitational constant
+		parse_elem(root, false, STR_GRAVITY, &scene->get_physics()->gravity);
+		// parse damping constants
+		parse_elem(root, false, STR_COLLISIONDAMPING, &scene->get_physics()->collision_damping);
 
         // parse the lights
         elem = root->FirstChildElement( STR_PLIGHT );
@@ -575,7 +712,7 @@ bool load_scene( Scene* scene, const char* filename )
             Sphere* geom = new Sphere();
             check_mem( geom );
             scene->add_geometry( geom );
-            parse_geom_sphere( materials, elem, geom );
+			parse_geom_sphere(materials, bodies, scene->get_physics(), elem, geom);
 			parse_and_add_animator(elem, scene, geom);
             elem = elem->NextSiblingElement( STR_SPHERE );
         }
@@ -586,7 +723,7 @@ bool load_scene( Scene* scene, const char* filename )
             Triangle* geom = new Triangle();
             check_mem( geom );
             scene->add_geometry( geom );
-            parse_geom_triangle( materials, triverts, elem, geom );
+			parse_geom_triangle(materials, triverts, bodies, scene->get_physics(), elem, geom);
 			parse_and_add_animator(elem, scene, geom);
             elem = elem->NextSiblingElement( STR_TRIANGLE );
         }
@@ -597,7 +734,7 @@ bool load_scene( Scene* scene, const char* filename )
             Model* geom = new Model();
             check_mem( geom );
             scene->add_geometry( geom );
-            parse_geom_model( materials, meshes, elem, geom );
+			parse_geom_model(materials, meshes, bodies, scene->get_physics(), elem, geom);
 			parse_and_add_animator(elem, scene, geom);
             elem = elem->NextSiblingElement( STR_MODEL );
         }
@@ -607,12 +744,32 @@ bool load_scene( Scene* scene, const char* filename )
 			CSG *csg = new CSG();
 			check_mem( csg );
 			scene->add_geometry( csg);
-			parse_geom_csg(materials, meshes, triverts, elem, csg);
+			parse_geom_csg(materials, meshes, triverts, elem, csg, bodies, scene);
 			parse_and_add_animator(elem, scene, csg);
 			elem = elem->NextSiblingElement( STR_CSG);
 		}
 
         // TODO add you own geometries here
+
+		// physical planes
+		elem = root->FirstChildElement(STR_PLANEBODY);
+		while (elem) {
+			PlaneBody* body = new PlaneBody();
+			check_mem(body);
+			parse_planebody(bodies, elem, body);
+			scene->get_physics()->add_plane(body);
+			elem = elem->NextSiblingElement(STR_PLANEBODY);
+		}
+
+		// springs
+		elem = root->FirstChildElement(STR_SPRING);
+		while (elem) {
+			Spring* spring = new Spring();
+			check_mem(spring);
+			parse_spring(bodies, elem, spring);
+			scene->get_physics()->add_spring(spring);
+			elem = elem->NextSiblingElement(STR_SPRING);
+		}
 
     } catch ( std::bad_alloc const& ) {
         std::cout << "Out of memory error while loading scene\n.";

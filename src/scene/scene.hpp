@@ -20,6 +20,9 @@
 #include <cfloat>
 #include "scene/bound.hpp"
 #include "scene/csgintervals.hpp"
+#include "scene/pool_controller.hpp"
+
+#include "p3/physics.hpp"
 
 namespace _462 {
 
@@ -66,6 +69,9 @@ public:
     /// the refraction index of air
     real_t refractive_index;
 
+	/// pool controller
+	PoolController pool_controller;
+
 	EnvMap envmap;
 	
 	// Depth of field options
@@ -89,6 +95,7 @@ public:
 	real_t animation_fps;
 
     bool initialize();
+	bool post_initialize();
 
     // accessor functions
     Geometry* const* get_geometries() const;
@@ -99,6 +106,9 @@ public:
     size_t num_materials() const;
     Mesh* const* get_meshes() const;
     size_t num_meshes() const;
+
+	Physics* get_physics();
+
 	Animator * const * get_animators() const;
 	size_t num_animators() const;
 
@@ -114,6 +124,12 @@ public:
     void add_light( const SphereLight& l );
 	void add_animator(Animator *animator);
     
+	void update(real_t dt);
+	void handle_event(const SDL_Event& event);
+	// the physics engine
+	Physics phys;
+
+	bool is_pool;
 private:
 
     typedef std::vector< SphereLight > SphereLightList;
@@ -132,7 +148,6 @@ private:
     GeometryList geometries;
 
 	AnimatorList animators;
-private:
 
     // no meaningful assignment or copy
     Scene(const Scene&);

@@ -40,6 +40,11 @@ public:
             assert(lower[i]<=other[i] && other[i]<=upper[i]);
         }
     }
+
+	// physics
+	bool collides(Vector3 position, real_t radius);
+	int longestAxis();
+	void expand(Bound a);
 };
 static std::ostream& operator<<( std::ostream& os, const Bound& b )
 {

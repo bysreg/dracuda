@@ -55,6 +55,9 @@ bool Raytracer::initialize(Scene* scene, size_t num_samples,
     current_row = 0;
 
     projector.init(scene->camera);
+
+
+
     scene->initialize();
     photonMap.initialize(scene);
     return true;
