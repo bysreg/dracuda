@@ -243,6 +243,8 @@ bool RaytracerApplication::initialize()
 			Sphere *s = (Sphere *)g;
 			primary_material = s->material;
 			cscene_host.type[i] = 1;
+			Vector3 scaled = g->scale * s->radius;
+			scaled.to_array(cscene_host.scale + 3 * i);
 		} else if (type_string.find("Triangle") != string::npos) {
 			Triangle *t = (Triangle *)g;
 			cscene_host.type[i] = 2;
