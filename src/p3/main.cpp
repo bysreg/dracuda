@@ -308,6 +308,34 @@ bool RaytracerApplication::initialize()
 	cscene.N_light = N_light;
 	cscene.N_material = N_material;
 
+	EnvMap &envmap = scene.envmap;
+	if (envmap.enabled) {
+		envmap.initialize();
+	int num_faces  = 6;
+	int width = envmap.posx.width;
+	int height = envmap.posx.height;
+	std::cout << "Width : " << width << std::endl;
+
+	int size = num_faces * width * height * sizeof(uchar4) ;
+	int face_size = width * height * sizeof (uchar4);
+
+	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned );
+	cudaArray *cu_3darray;
+	cudaMalloc3DArray(&cu_3darray, &channelDesc, make_cudaExtent(width, height, num_faces), cudaArrayCubemap);
+	unsigned char *envmap_array = new unsigned char [size];
+	memcpy(envmap_array, envmap.posx.data, face_size);
+	memcpy(envmap_array + face_size, envmap.negx.data, face_size);
+	memcpy(envmap_array + face_size * 2, envmap.posy.data, face_size);
+	memcpy(envmap_array + face_size * 3, envmap.negy.data, face_size);
+	memcpy(envmap_array + face_size * 4, envmap.posz.data, face_size);
+	memcpy(envmap_array + face_size * 5, envmap.negz.data, face_size);
+
+	cudaMemcpyToArray(cu_3darray, 0, 0, envmap_array, size, cudaMemcpyHostToDevice);
+	bindEnvmap(cu_3darray, channelDesc);
+	}
+
+	std::cout << "Cuda initialized" << std::endl;
+
     // set the gl state
     if ( load_gl ) {
         float arr[4];

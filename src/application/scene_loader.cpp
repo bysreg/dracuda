@@ -284,7 +284,9 @@ static void parse_camera( const TiXmlElement* elem, Camera* camera )
     parse_elem( elem, true,  STR_POSITION,  &camera->position );
     parse_elem( elem, true,  STR_ORIENT,    &ori );
     // normalize orientation
+	std::cout << ori << std::endl;
     camera->orientation = normalize( ori );
+	std::cout << camera->orientation << std::endl;
 }
 
 static void parse_point_light( const TiXmlElement* elem, SphereLight* light )

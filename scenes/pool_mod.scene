@@ -1,0 +1,125 @@
+<scene>
+    <camera>
+        <fov v=".785"/>
+        <near_clip v=".01"/>
+        <far_clip v="200.0"/>
+        <position x="0.0" y="4.0" z="8.0"/>
+        <orientation a="-0.5217" x="1" y="0" z="0"/>
+    </camera>
+
+	<environment_map cubemap="cubemaps/stpet/" size="10.0"/>
+
+    <background_color r="0.4" g="0.4" b="0.4"/>
+
+    <refractive_index v="1.0"/>
+	
+    <ambient_light r="0.0" g="0.0" b="0.0"/>
+
+    <point_light>
+        <position x="0.0" y="10000.0" z="0.0"/>
+        <color r="1.0" g="1.0" b="1.0"/>
+		<radius v="1000.0" />
+    </point_light>
+
+    <material name="1" >
+        <ambient r="0.2" g="0.2" b="0.2"/>
+        <diffuse r="0.0" g="0.1" b="0.20"/>
+        <specular r="0.0" g="0.0" b="0.0"/>
+        <refractive_index v="0.0"/>
+    </material>
+
+    <material name="4" >
+        <ambient r="0.2" g="0.2" b="0.2"/>
+        <diffuse r="0.20" g="0.0" b="0.0"/>
+        <specular r="0.0" g="0.0" b="0.0"/>
+        <refractive_index v="0.0"/>
+    </material>
+
+    <material name="11" >
+        <ambient r="0.2" g="0.2" b="0.2"/>
+        <diffuse r="0.20" g="0.20" b="0.00"/>
+        <specular r="0.0" g="0.0" b="0.0"/>
+        <refractive_index v="0.0"/>
+    </material>
+
+    <material name="cue">
+        <ambient r="0.0" g="0.0" b="0.0"/>
+        <diffuse r="0.30" g="0.25" b="0.20"/>
+        <specular r="0.0" g="0.0" b="0.0"/>
+        <refractive_index v="0.0"/>
+    </material>
+
+    <material name="green">
+        <ambient r="0.0" g="0.2" b="0.0"/>
+        <diffuse r="0.01" g="0.20" b="0.03"/>
+        <specular r="0.0" g="0.0" b="0.0"/>
+        <refractive_index v="0.0"/>
+    </material>
+
+	<material name="black">
+		<ambient r="0.0" g="0.0" b="0.0"/>
+        <diffuse r="0.0" g="0.0" b="0.0"/>
+        <specular r="0.0" g="0.0" b="0.0"/>
+        <refractive_index v="0.0"/>
+    </material>
+	
+    <sphere material="4">
+        <position x="1.0" y="1.0" z="1.0"/>
+		<scale x="1.0" y="1.0" z="1.0"/>
+    </sphere>
+    
+    <sphere material="11">
+        <position x="-4.0" y="1.0" z="0.0"/>
+		<scale x="1.0" y="1.0" z="1.0"/>
+    </sphere>
+    
+    <sphere material="1">
+        <position x="0.0" y="1.0" z="3.0"/>
+		<scale x="1.0" y="1.0" z="1.0"/>
+    </sphere>
+    
+    <sphere material="cue">
+        <position x="5.0" y="1.0" z="-2.0"/>
+		<scale x="1.0" y="1.0" z="1.0"/>
+    </sphere>
+
+    <vertex name="p1" material="green">
+        <position x="500" y="0" z="500"/>
+        <normal x="0.0" y="1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+        
+    <vertex name="p2" material="green">
+        <position x="500" y="0.0" z="-500"/>
+        <normal x="0.0" y="1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+        
+    <vertex name="p3" material="green">
+        <position x="-500" y="0.0" z="500"/>
+        <normal x="0.0" y="1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+        
+    <vertex name="p4" material="green">
+        <position x="-500" y="0.0" z="-500"/>
+        <normal x="0.0" y="1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+    
+    <triangle material="green">
+        <position x="0.0" y="0.0" z="0.0"/>
+        <vertex name="p1"/>
+        <vertex name="p2"/>
+        <vertex name="p3"/>
+    </triangle>
+    
+    <triangle material="green">
+        <position x="0.0" y="0.0" z="0.0"/>
+        <vertex name="p3"/>
+        <vertex name="p2"/>
+        <vertex name="p4"/>
+    </triangle>
+    
+</scene>
+
