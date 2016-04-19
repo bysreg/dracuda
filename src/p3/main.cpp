@@ -96,7 +96,7 @@ public:
 
     RaytracerApplication( const Options& opt )
         : options( opt ), buffer( 0 ), buf_width( 0 ),
-      buf_height( 0 ), queue_render_photon ( false ), raytracing( false ) { }
+		buf_height(0), queue_render_photon(false), raytracing(false), gpu_raytracing(false) {}
 
     virtual ~RaytracerApplication() {
 		if (buffer)
