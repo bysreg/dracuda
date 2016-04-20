@@ -12,6 +12,7 @@ find_package(PNG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(OpenMP)
+find_package(Boost COMPONENTS system thread REQUIRED)
 
 if (DEFINED OpenMP_CXX_FLAGS)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DOPENMP ${OpenMP_CXX_FLAGS}")
