@@ -14,12 +14,13 @@ public:
 	Master()
 	{
 
-	}
+	}	
 
 	// create a new thread to run the master tcp async server
-	void run();
+	static void start();
 
 private:
-
+	
+	void run();
 
 };

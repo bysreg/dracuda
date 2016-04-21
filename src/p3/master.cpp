@@ -2,6 +2,11 @@
 
 #include "master.hpp"
 
+
+void Master::start() {
+		
+}
+
 void Master::run() {
 	// try {
 	// 	io_service.run();	
