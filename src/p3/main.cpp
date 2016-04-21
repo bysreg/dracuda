@@ -24,6 +24,8 @@
 #include "raytracer_cuda.hpp"
 #include "cycleTimer.h"
 
+#include "master.hpp"
+
 #include <SDL.h>
 
 #include <stdlib.h>
@@ -940,7 +942,10 @@ int main( int argc, char* argv[] )
 	cout << "Geometries: " << scene->num_geometries() << endl;
 	cout << "Meshes: " << scene->num_meshes() << endl;
 	cout << "Materials: " << scene->num_materials() << endl;
-	
+
+	// start master
+	Master::start();
+
     // either launch a window or do a full raytrace without one,
     // depending on the option
     if ( opt.open_window ) {
@@ -974,7 +979,6 @@ int main( int argc, char* argv[] )
 			app.output_image();
 		}
 		ret = 0;
-
     }
 	return ret;
 }
