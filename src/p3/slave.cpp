@@ -16,7 +16,7 @@ void Slave::start(const std::string& host)
 
 	tcp::resolver resolver(io_service);
 	auto endpoint_iterator = resolver.resolve({ host, boost::lexical_cast<std::string>(1030)}); // 1030 is the port number
-	Slave slave(io_service, endpoint_iterator);	
+	static Slave slave(io_service, endpoint_iterator);	
 
 	boost::thread t(boost::bind(&Slave::run, &slave, endpoint_iterator));
 }
@@ -75,6 +75,8 @@ void Slave::do_read_body()
 			std::cout.write(read_msg.body(), read_msg.body_length());
 			std::cout << "\n";
 			
+			process_message(read_msg);
+
 			do_read_header();
 		}
 		else
@@ -129,4 +131,10 @@ void Slave::send(const Message& msg)
 			do_write();
 		}
 	});
+}
+
+void Slave::process_message(const Message& message)
+{
+	send_anjing();
+
 }

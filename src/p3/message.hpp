@@ -5,7 +5,7 @@ class Message
 
 public:
 	static const int header_length = 4;
-	static const int max_body_length = 2000000;
+	static const int max_body_length = 200;
 
 	Message() : body_length_(0)
 	{}

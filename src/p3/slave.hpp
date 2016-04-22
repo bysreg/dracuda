@@ -44,4 +44,5 @@ private:
 	void do_read_header();
 	void do_read_body();
 	void do_write();
+	void process_message(const Message&);
 };
