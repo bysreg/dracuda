@@ -73,6 +73,7 @@ private:
 	
 	void send(Connection::pointer, char code);
 	void send(Connection::pointer, const std::string& s);
+	void send(Connection::pointer, const Message& msg);
 
 	static std::string make_daytime_string()
 	{

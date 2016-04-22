@@ -70,10 +70,10 @@ void Slave::do_read_body()
 	{
 		if (!ec)
 		{
-			printf("%.*s\n", read_msg.body_length(), read_msg.body());
+			//printf("%.*s\n", read_msg.body_length(), read_msg.body());
 
-			//std::cout.write(read_msg.body(), read_msg.body_length());
-			//std::cout << "\n";
+			std::cout.write(read_msg.body(), read_msg.body_length());
+			std::cout << "\n";
 			
 			do_read_header();
 		}

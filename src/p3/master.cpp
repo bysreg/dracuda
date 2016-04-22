@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "master.hpp"
+#include "message.hpp"
 
 using namespace std;
 
@@ -54,7 +55,7 @@ void Master::handle_accept(Connection::pointer new_conn,
 }
 
 void Master::send_complete(const boost::system::error_code& /*error*/,
-      size_t /*bytes_transferred*/)
+	  size_t /*bytes_transferred*/)
 {	
 } 
 
@@ -76,17 +77,26 @@ void Master::send(Connection::pointer connection, char code)
 		boost::asio::buffer(buf), 
 		boost::bind(&Master::send_complete, 
 			this,
-          	boost::asio::placeholders::error,
-          	boost::asio::placeholders::bytes_transferred));
+			boost::asio::placeholders::error,
+			boost::asio::placeholders::bytes_transferred));
 }
 
 void Master::send(Connection::pointer connection, const string& str)
 {
-	printf(">> %s\n", str.c_str());
+	Message msg;
+	msg.set_body_length(str.length());
+	std::memcpy(msg.body(), str.c_str(), str.length());
+	msg.encode_header();
+
+	send(connection, msg);	
+}
+
+void Master::send(Connection::pointer connection, const Message& msg)
+{
 	boost::asio::async_write(connection->socket(), 
-		boost::asio::buffer(str), 
+		boost::asio::buffer(msg.data(), msg.length()), 
 		boost::bind(&Master::send_complete, 
 			this,
-          	boost::asio::placeholders::error,
-          	boost::asio::placeholders::bytes_transferred));
+			boost::asio::placeholders::error,
+			boost::asio::placeholders::bytes_transferred));
 }

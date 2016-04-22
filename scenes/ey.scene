@@ -1,0 +1,139 @@
+<scene>
+    <camera>
+        <fov v="1.0471975511"/>
+        <near_clip v=".01"/>
+        <far_clip v="100.0"/>
+        <position x="0.0" y="2.0" z="9.2"/>
+        <orientation a="0.0" x="0.0" y="1.0" z="0.0"/>
+    </camera>
+
+    <background_color r="0.0" g="0.0" b="0.0"/>
+
+    <refractive_index v="1.0"/>
+
+    <ambient_light r="0.85" g="0.85" b="0.9"/>
+
+    <point_light>
+        <position x="-140.0" y="80.0" z="0.0"/>
+        <color r="2.0" g="2.0" b="2.0"/>
+		<radius v="30.0"/>
+    </point_light>
+
+    <material name="white">
+        <refractive_index v="0.0"/>
+        <ambient r="0.5" g="0.5" b="0.5"/>
+        <diffuse r="0.8" g="0.8" b="0.8"/>
+    </material>
+
+    <material name="crystal">
+        <refractive_index v="2.0"/>
+        <ambient r="0.3" g="0.2" b="0.1"/>
+        <diffuse r="0.38" g="0.29" b="0.12"/>
+        <specular r="0.44" g="0.38" b="0.34"/>
+    </material>
+
+    <material name="mirror" bump="images/scratch.png">
+        <refractive_index v="0.0"/>
+        <ambient r="0.2" g="0.1" b="0.2"/>
+        <diffuse r="0.8" g="0.6" b="0.8"/>
+        <specular r="0.6" g="0.3" b="0.6"/>
+    </material>
+
+
+    <vertex name="f1" material="white">
+        <position x="-400.0" y="-2.0" z="-400.0"/>
+        <normal x="0.0" y="1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="f2" material="white">
+        <position x="-400.0" y="-2.0" z="400.0"/>
+        <normal x="0.0" y="1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="f3" material="white">
+        <position x="400.0" y="-2.0" z="400.0"/>
+        <normal x="0.0" y="1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="f4" material="white">
+        <position x="400.0" y="-2.0" z="-400.0"/>
+        <normal x="0.0" y="1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="c1" material="white">
+        <position x="-4.0" y="6.0" z="-4.0"/>
+        <normal x="0.0" y="-1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="c2" material="white">
+        <position x="4.0" y="6.0" z="-4.0"/>
+        <normal x="0.0" y="-1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="c3" material="white">
+        <position x="4.0" y="6.0" z="4.0"/>
+        <normal x="0.0" y="-1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="c4" material="white">
+        <position x="-4.0" y="6.0" z="4.0"/>
+        <normal x="0.0" y="-1.0" z="0.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="b1" material="white">
+        <position x="-4.0" y="-2.0" z="-4.0"/>
+        <normal x="0.0" y="0.0" z="1.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="b2" material="white">
+        <position x="4.0" y="-2.0" z="-4.0"/>
+        <normal x="0.0" y="0.0" z="1.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="b3" material="white">
+        <position x="4.0" y="6.0" z="-4.0"/>
+        <normal x="0.0" y="0.0" z="1.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <vertex name="b4" material="white">
+        <position x="-4.0" y="6.0" z="-4.0"/>
+        <normal x="0.0" y="0.0" z="1.0"/>
+        <tex_coord u="0.0" v="0.0"/>
+    </vertex>
+
+    <triangle material="white">
+        <position x="0.0" y="0.0" z="0.0"/>
+        <vertex name="f1"/>
+        <vertex name="f2"/>
+        <vertex name="f3"/>
+    </triangle>
+
+    <triangle material="white">
+        <position x="0.0" y="0.0" z="0.0"/>
+        <vertex name="f3"/>
+        <vertex name="f4"/>
+        <vertex name="f1"/>
+    </triangle>
+
+
+    <sphere material="crystal">
+        <position x="1.0" y="-1.0" z="1.0"/>
+		<scale x="1.0" y="1.0" z="1.0"/>
+    </sphere>
+
+    <sphere material="mirror">
+        <position x="-1.0" y="0.0" z="-1.75"/>
+		<scale x="2.0" y="2.0" z="2.0"/>
+    </sphere>
+</scene>
