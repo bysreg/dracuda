@@ -55,12 +55,11 @@ void Master::handle_accept(Connection::pointer new_conn,
 
 void Master::send_complete(const boost::system::error_code& /*error*/,
       size_t /*bytes_transferred*/)
-{
-
+{	
 } 
 
 void Master::send_helloworld(Connection::pointer connection)
-{
+{	
 	send(connection, "2helloworld!!\n");
 }
 
@@ -83,6 +82,7 @@ void Master::send(Connection::pointer connection, char code)
 
 void Master::send(Connection::pointer connection, const string& str)
 {
+	printf(">> %s\n", str.c_str());
 	boost::asio::async_write(connection->socket(), 
 		boost::asio::buffer(str), 
 		boost::bind(&Master::send_complete, 

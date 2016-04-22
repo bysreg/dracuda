@@ -25,12 +25,14 @@
 #include "cycleTimer.h"
 
 #include "master.hpp"
+#include "slave.hpp"
 
 #include <SDL.h>
 
 #include <stdlib.h>
 #include <iostream>
 #include <cstring>
+#include <string>
 
 cudaScene cscene;
 cudaScene cscene_host;
@@ -89,6 +91,10 @@ struct Options
     int num_samples;
 	bool motion_blur = false;
 	bool animation = false;
+	bool master = false;
+	bool slave = false;
+
+	std::string host; // host to connect from slave
 };
 
 class RaytracerApplication : public Application
@@ -874,6 +880,19 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
     opt->num_samples = 1;
     for (int i = 2; i < argc; i++)
     {
+
+    	if(strcmp(argv[i] + 1, "master") == 0) {    		
+    		opt->master = true;
+    		continue;
+    	}
+
+    	if(strcmp(argv[i] + 1, "slave") == 0) {
+    		opt->slave = true;
+    		opt->host = argv[i + 1]; // we assume the next parameter is the master's host for the slave to connect to
+    		i++;
+    		continue;
+    	}
+
         switch (argv[i][1])
         {
         case 'd':
@@ -943,8 +962,13 @@ int main( int argc, char* argv[] )
 	cout << "Meshes: " << scene->num_meshes() << endl;
 	cout << "Materials: " << scene->num_materials() << endl;
 
-	// start master
-	Master::start();
+	cout << "master:slave => " << opt.master << ":" << opt.slave << endl;
+
+	if(opt.master) {
+		Master::start();
+	}else if(opt.slave) {
+		Slave::start(opt.host);
+	}	
 
     // either launch a window or do a full raytrace without one,
     // depending on the option

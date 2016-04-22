@@ -39,6 +39,7 @@ private:
 	Message read_msg;
 	MessageQueue write_msgs;
 
+	void run(boost::asio::ip::tcp::resolver::iterator endpoint_iterator);
 	void do_connect(tcp::resolver::iterator endpoint_iterator);
 	void do_read_header();
 	void do_read_body();

@@ -1,5 +1,6 @@
 #include "slave.hpp"
 
+#include <boost/thread/thread.hpp>
 #include <boost/asio.hpp>
 #include <string>
 #include <cstdlib>
@@ -11,13 +12,24 @@ void Slave::start(const std::string& host)
 
 	static boost::asio::io_service io_service;
 
+	std::cout<<"starting slave server..."<<std::endl;	
+
 	tcp::resolver resolver(io_service);
 	auto endpoint_iterator = resolver.resolve({ host, boost::lexical_cast<std::string>(1030)}); // 1030 is the port number
-	Slave s(io_service, endpoint_iterator);	
+	Slave slave(io_service, endpoint_iterator);	
+
+	boost::thread t(boost::bind(&Slave::run, &slave, endpoint_iterator));
 }
 
 void Slave::stop()
 {
+}
+
+void Slave::run(boost::asio::ip::tcp::resolver::iterator endpoint_iterator)
+{
+	do_connect(endpoint_iterator);
+
+	io_service.run();
 }
 
 void Slave::do_connect(tcp::resolver::iterator endpoint_iterator)
@@ -58,8 +70,11 @@ void Slave::do_read_body()
 	{
 		if (!ec)
 		{
-			std::cout.write(read_msg.body(), read_msg.body_length());
-			std::cout << "\n";
+			printf("%.*s\n", read_msg.body_length(), read_msg.body());
+
+			//std::cout.write(read_msg.body(), read_msg.body_length());
+			//std::cout << "\n";
+			
 			do_read_header();
 		}
 		else
