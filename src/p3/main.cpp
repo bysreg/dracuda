@@ -219,6 +219,7 @@ bool RaytracerApplication::initialize()
 	gpuErrchk(cudaMalloc((void **)&cscene.vertex1, sizeof(float) * 3 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.vertex2, sizeof(float) * 3 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.curand, sizeof(curandState) * dwidth * dheight));
+	gpuErrchk(cudaMalloc((void **)&cscene.data, sizeof(float) * 7 * N));
 
 	// Mirrored host mem
 	cscene_host.position = (float *)malloc(sizeof(float) * 3 * N);
@@ -236,11 +237,15 @@ bool RaytracerApplication::initialize()
 	cscene_host.vertex0 = (float *)malloc(sizeof(float) * 3 * N);
 	cscene_host.vertex1 = (float *)malloc(sizeof(float) * 3 * N);
 	cscene_host.vertex2 = (float *)malloc(sizeof(float) * 3 * N);
+	cscene_host.data = (float *)malloc(sizeof(float) * 7 * N);
+	cscene_host.position = cscene_host.data + 4 * N;
+	cscene_host.rotation = cscene_host.data;
 	
 
 	for (size_t i = 0; i < N; i++) {
 		Geometry *g = scene.get_geometries()[i];
 		g->post_initialize();
+		//g->position.to_array(cscene_host.position + 3 * i);
 		g->position.to_array(cscene_host.position + 3 * i);
 		g->orientation.to_array(cscene_host.rotation + 4 * i);
 		g->scale.to_array(cscene_host.scale + 3 * i);
@@ -288,8 +293,11 @@ bool RaytracerApplication::initialize()
 		m->specular.to_array(cscene_host.specular + 3 * i);
 	}
 
-	cudaMemcpy(cscene.position, cscene_host.position, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.rotation, cscene_host.rotation, sizeof(float) * 4 * N, cudaMemcpyHostToDevice);
+	//cudaMemcpy(cscene.position, cscene_host.position, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
+	///cudaMemcpy(cscene.rotation, cscene_host.rotation, sizeof(float) * 4 * N, cudaMemcpyHostToDevice);
+	//gpuErrchk(cudaMemcpy(cscene.data + 4 * N, cscene_host.position, sizeof(float) * 3 * N, cudaMemcpyHostToDevice));
+	//gpuErrchk(cudaMemcpy(cscene.data, cscene_host.rotation, sizeof(float) * 4 * N, cudaMemcpyHostToDevice));
+	cudaMemcpy(cscene.data, cscene_host.data, sizeof(float) * 7 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.scale, cscene_host.scale, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.type, cscene_host.type, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.radius, cscene_host.radius, sizeof(float) * 1 * N, cudaMemcpyHostToDevice);
@@ -303,6 +311,8 @@ bool RaytracerApplication::initialize()
 	cudaMemcpy(cscene.vertex0, cscene_host.vertex0, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.vertex1, cscene_host.vertex1, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.vertex2, cscene_host.vertex2, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
+	cudaMemcpy(cscene.data, cscene_host.vertex2, sizeof(float) * 7 * N, cudaMemcpyHostToDevice);
+
 
 	
 	scene.camera.position.to_array(cscene.cam_position);
@@ -678,13 +688,8 @@ void RaytracerApplication::do_gpu_raytracing()
 	cscene.width = width;
 	cscene.height = height;
 	gpu_raytracing = true;
-	double timeStart = CycleTimer::currentSeconds();
 	cudaRayTrace(&cscene, cimg);
-        std::cout << "No image to output.\n";
-
 	gpuErrchk(cudaMemcpy(buffer, cimg, 4 * dwidth * dheight, cudaMemcpyDeviceToHost));
-	double timeEnd = CycleTimer::currentSeconds();
-	printf("CUDA Render Time: %lf\n", timeEnd - timeStart);
 
 }
 void RaytracerApplication::output_image()

@@ -161,14 +161,22 @@ __device__ float3 do_material (int geom, float3 diffuse, float3 normal, float3 p
 	return mate;
 }
 
-#define NSAMPLES 50
+#define NSAMPLES 10
+
+__global__
+void curandSetupKernel()
+{
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int w = y * cuScene.width + x;
+	curand_init(1578, w, 0, cuScene.curand + w);
+}
 __global__
 void cudaRayTraceKernel (unsigned char *img)
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 	int w = y * cuScene.width + x;
-	curand_init(1578, w, 0, cuScene.curand + w);
 
 	img[4 * w + 0] = 255;
 	img[4 * w + 1] = 0;
@@ -300,7 +308,12 @@ void cudaRayTrace(cudaScene *scene, unsigned char *img)
 	dim3 dimBlock(16, 16);
 	dim3 dimGrid(scene->width / 16, scene->height / 16);
 	cudaGetLastError();
+	curandSetupKernel<<<dimGrid, dimBlock>>>();
+
+	double startTime = CycleTimer::currentSeconds();
 	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(img);
+	printf("CUDA rendering time: %lf\n", CycleTimer::currentSeconds() - startTime);
+
 	cudaError_t error = cudaGetLastError();
 	if ( cudaSuccess != error )
 			printf( "Error: %d\n", error );

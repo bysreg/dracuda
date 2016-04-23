@@ -1,9 +1,9 @@
 find_package(CUDA)
 
 if(NOT WIN32)
-	list(APPEND CUDA_NVCC_FLAGS "-std=c++11;-O2;")
+	list(APPEND CUDA_NVCC_FLAGS "-std=c++11;-O2;-maxrregcount=128")
 else()
-	list(APPEND CUDA_NVCC_FLAGS "-std=c++11;")
+	list(APPEND CUDA_NVCC_FLAGS "-std=c++11;-maxrregcount=128")
 endif()
 
 CUDA_ADD_EXECUTABLE(p3 main.cpp raytracer.cpp raytracer.hpp photon.cpp photon.hpp neighbor.cpp neighbor.hpp photonmap.cpp photonmap.hpp util.cpp util.hpp randomgeo.cpp randomgeo.hpp collisions.cpp collisions.hpp modelbody.cpp modelbody.hpp planebody.cpp planebody.hpp spherebody.cpp spherebody.hpp trianglebody.cpp trianglebody.hpp body.hpp physics.cpp physics.hpp spring.cpp spring.hpp raytracer_cuda.cu master.cpp master.hpp slave.hpp slave.cpp)
