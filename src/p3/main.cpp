@@ -15,6 +15,7 @@
 #include <curand.h>
 #include "raytracer_cuda.hpp"
 #include "cycleTimer.h"
+#include "constants.hpp"
 
 #include "master.hpp"
 #include "slave.hpp"
@@ -128,33 +129,13 @@ bool RaytracerApplication::initialize()
 	int N_material = scene.num_materials();
 
 	//gpuErrchk(cudaMalloc((void **)&cscene.position, sizeof(float) * 3 * N));
-	gpuErrchk(cudaMalloc((void **)&cscene.scale, sizeof(float) * 3 * N));
 	//gpuErrchk(cudaMalloc((void **)&cscene.rotation, sizeof(float) * 4 * N));
-	gpuErrchk(cudaMalloc((void **)&cscene.type, sizeof(int) * 1 * N));
-	gpuErrchk(cudaMalloc((void **)&cscene.radius, sizeof(float) * 1 * N));
-	gpuErrchk(cudaMalloc((void **)&cscene.material, sizeof(float) * 1 * N));
-	gpuErrchk(cudaMalloc((void **)&cscene.ambient, sizeof(float) * 3 * N_material));
 	gpuErrchk(cudaMalloc((void **)&cscene.diffuse, sizeof(float) * 3 * N_material));
-	gpuErrchk(cudaMalloc((void **)&cscene.specular, sizeof(float) * 3 * N_material));
-	gpuErrchk(cudaMalloc((void **)&cscene.vertex0, sizeof(float) * 3 * N));
-	gpuErrchk(cudaMalloc((void **)&cscene.vertex1, sizeof(float) * 3 * N));
-	gpuErrchk(cudaMalloc((void **)&cscene.vertex2, sizeof(float) * 3 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.curand, sizeof(curandState) * dwidth * dheight));
 	gpuErrchk(cudaMalloc((void **)&cscene.data, sizeof(float) * 7 * N));
 
 	// Mirrored host mem
-	cscene_host.position = (float *)malloc(sizeof(float) * 3 * N);
-	cscene_host.rotation = (float *)malloc(sizeof(float) * 4 * N);
-	cscene_host.scale = (float *)malloc(sizeof(float) * 3 * N);
-	cscene_host.type = (int *)malloc(sizeof(int) * 1 * N);
-	cscene_host.radius = (float *)malloc(sizeof(float) * 1 * N);
-	cscene_host.material = (int *)malloc(sizeof(int) * 1 * N);
-	cscene_host.ambient = (float *)malloc(sizeof(float) * 3 * N_material);
 	cscene_host.diffuse = (float *)malloc(sizeof(float) * 3 * N_material);
-	cscene_host.specular = (float *)malloc(sizeof(float) * 3 * N_material);
-	cscene_host.vertex0 = (float *)malloc(sizeof(float) * 3 * N);
-	cscene_host.vertex1 = (float *)malloc(sizeof(float) * 3 * N);
-	cscene_host.vertex2 = (float *)malloc(sizeof(float) * 3 * N);
 	cscene_host.data = (float *)malloc(sizeof(float) * 7 * N);
 	cscene_host.position = cscene_host.data + 4 * N;
 	cscene_host.rotation = cscene_host.data;
@@ -163,35 +144,8 @@ bool RaytracerApplication::initialize()
 	for (size_t i = 0; i < N; i++) {
 		Geometry *g = scene.get_geometries()[i];
 		g->post_initialize();
-		//g->position.to_array(cscene_host.position + 3 * i);
 		g->position.to_array(cscene_host.position + 3 * i);
 		g->orientation.to_array(cscene_host.rotation + 4 * i);
-		g->scale.to_array(cscene_host.scale + 3 * i);
-		string type_string = typeid(*g).name();
-			cout << type_string << endl;
-		const Material *primary_material;
-		if (type_string.find("Sphere") != string::npos) {
-			Sphere *s = (Sphere *)g;
-			primary_material = s->material;
-			cscene_host.type[i] = 1;
-			Vector3 scaled = g->scale * s->radius;
-			scaled.to_array(cscene_host.scale + 3 * i);
-		} else if (type_string.find("Triangle") != string::npos) {
-			Triangle *t = (Triangle *)g;
-			cscene_host.type[i] = 2;
-			primary_material = t->vertices[0].material;
-			t->vertices[0].position.to_array(cscene_host.vertex0 + 3 * i);
-			t->vertices[1].position.to_array(cscene_host.vertex1 + 3 * i);
-			t->vertices[2].position.to_array(cscene_host.vertex2 + 3 * i);
-		} else if (type_string.find("Model") != string::npos) {
-			Model *m = (Model *)m;
-			primary_material = m->material;
-			cscene_host.type[i] = 3;
-		}
-		for (int j = 0; j < N_material; j++) {
-			if (scene.get_materials()[j] == primary_material)
-				cscene_host.material[i] = j;
-		}
 	}
 
 	scene.post_initialize();
@@ -199,9 +153,7 @@ bool RaytracerApplication::initialize()
 	for (int i = 0; i < N_material; i++)
 	{
 		Material *m = scene.get_materials()[i];
-		m->ambient.to_array(cscene_host.ambient + 3 * i);
 		m->diffuse.to_array(cscene_host.diffuse + 3 * i);
-		m->specular.to_array(cscene_host.specular + 3 * i);
 	}
 
 	//cudaMemcpy(cscene.position, cscene_host.position, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
@@ -209,24 +161,10 @@ bool RaytracerApplication::initialize()
 	//gpuErrchk(cudaMemcpy(cscene.data + 4 * N, cscene_host.position, sizeof(float) * 3 * N, cudaMemcpyHostToDevice));
 	//gpuErrchk(cudaMemcpy(cscene.data, cscene_host.rotation, sizeof(float) * 4 * N, cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(cscene.data, cscene_host.data, sizeof(float) * 7 * N, cudaMemcpyHostToDevice));
-	gpuErrchk(cudaMemcpy(cscene.scale, cscene_host.scale, sizeof(float) * 3 * N, cudaMemcpyHostToDevice));
-	cudaMemcpy(cscene.type, cscene_host.type, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.radius, cscene_host.radius, sizeof(float) * 1 * N, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.material, cscene_host.material, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.ambient, cscene_host.ambient, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.diffuse, cscene_host.diffuse, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.specular, cscene_host.specular, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.vertex0, cscene_host.vertex0, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.vertex1, cscene_host.vertex1, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.vertex2, cscene_host.vertex2, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
-	//cudaMemcpy(cscene.data, cscene_host.vertex2, sizeof(float) * 7 * N, cudaMemcpyHostToDevice);
-	
-
-
 	
 	scene.camera.position.to_array(cscene.cam_position);
 	scene.camera.orientation.to_array(cscene.cam_orientation);
-	scene.ambient_light.to_array(cscene.ambient_light_col);
 	cscene.fov = scene.camera.fov;
 	cscene.aspect = (dwidth + 0.0) / (dheight + 0.0);
 	cscene.near_clip = scene.camera.near_clip;
