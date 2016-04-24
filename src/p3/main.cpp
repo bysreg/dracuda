@@ -1,11 +1,3 @@
-/**
- * @file main_rayracer.cpp
- * @brief Raytracer entry
- *
- * @author Eric Butler (edbutler)
- */
-
-
 #include "application/application.hpp"
 #include "application/camera_roam.hpp"
 #include "application/imageio.hpp"
@@ -42,53 +34,21 @@ unsigned char *cimg;
 
 namespace _462 {
 
-
-//default size of the image in the window
 #define DEFAULT_WIDTH 800
 #define DEFAULT_HEIGHT 600
 #define dwidth 800
 #define dheight 600
 
 #define BUFFER_SIZE(w,h) ( (size_t) ( 4 * (w) * (h) ) )
-
-//key which starts the raytracer
-#define KEY_RAYTRACE SDLK_r
-//key which saves the current image to a file
-#define KEY_SCREENSHOT SDLK_f
-//key which runs the photon emitter
-#define KEY_SEND_PHOTONS SDLK_t
-
-#define KEY_START_ANIMATION SDLK_y
-
-#define KEY_MOTION_BLUR SDLK_u
-
 #define KEY_RAYTRACE_GPU SDLK_g
-
-
-// pretty sure these are sequential, but use an array just in case
-static const GLenum LightConstants[] = {
-    GL_LIGHT0, GL_LIGHT1, GL_LIGHT2, GL_LIGHT3,
-    GL_LIGHT4, GL_LIGHT5, GL_LIGHT6, GL_LIGHT7
-};
 static const size_t NUM_GL_LIGHTS = 8;
-
-// renders a scene using opengl
-
-/**
- * Struct of the program options.
- */
 struct Options
 {
-    // whether to open a window or just render without one
     bool open_window;
-    // not allocated, pointed it to something static
     const char* input_filename;
-    // not allocated, pointed it to something static
     const char* output_filename;
-    // window dimensions
     int width, height;
     int num_samples;
-	bool motion_blur = false;
 	bool master = false;
 	bool slave = false;
 
@@ -102,7 +62,7 @@ public:
 
     RaytracerApplication( const Options& opt )
         : options( opt ), buffer( 0 ), buf_width( 0 ),
-		buf_height(0), queue_render_photon(false), raytracing(false), gpu_raytracing(false) {}
+		buf_height(0), gpu_raytracing(false) {}
 
     virtual ~RaytracerApplication() {
 		if (buffer)
@@ -116,40 +76,16 @@ public:
     virtual void handle_event( const SDL_Event& event );
 
     // flips raytracing, does any necessary initialization
-    void toggle_raytracing( int width, int height );
-	void start_motion_blur(int width, int height);
 	void do_gpu_raytracing();
 
-    // writes the current raytrace buffer to the output file
-
-    Raytracer raytracer;
-
-    // the scene to render
     Scene scene;
-
-    // options
     Options options;
-
-    // the camera
     CameraRoamControl camera_control;
-
-	bool pause;
-	real_t speed;
-
     // the image buffer for raytracing
     unsigned char* buffer = 0;
-	int frames;
     // width and height of the buffer
     int buf_width, buf_height;
-    
-    bool queue_render_photon;
-// true if we are in raytrace mode.
-    // if so, we raytrace and display the raytrace.
-    // if false, we use normal gl rendering
-    bool raytracing;
 	bool gpu_raytracing;
-    // false if there is more raytracing to do
-    bool raytrace_finished;
 };
 
 bool RaytracerApplication::initialize()
@@ -158,8 +94,6 @@ bool RaytracerApplication::initialize()
     camera_control.camera = scene.camera;
     bool load_gl = options.open_window;
 
-	pause = false;
-	speed = 1.0;
 
     try {
 
@@ -199,9 +133,6 @@ bool RaytracerApplication::initialize()
 	gpuErrchk(cudaMalloc((void **)&cscene.type, sizeof(int) * 1 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.radius, sizeof(float) * 1 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.material, sizeof(float) * 1 * N));
-	gpuErrchk(cudaMalloc((void **)&cscene.light_pos, sizeof(float) * 3 * N_light));
-	gpuErrchk(cudaMalloc((void **)&cscene.light_col, sizeof(float) * 3 * N_light));
-	gpuErrchk(cudaMalloc((void **)&cscene.light_radius, sizeof(float) * 1 * N_light));
 	gpuErrchk(cudaMalloc((void **)&cscene.ambient, sizeof(float) * 3 * N_material));
 	gpuErrchk(cudaMalloc((void **)&cscene.diffuse, sizeof(float) * 3 * N_material));
 	gpuErrchk(cudaMalloc((void **)&cscene.specular, sizeof(float) * 3 * N_material));
@@ -218,9 +149,6 @@ bool RaytracerApplication::initialize()
 	cscene_host.type = (int *)malloc(sizeof(int) * 1 * N);
 	cscene_host.radius = (float *)malloc(sizeof(float) * 1 * N);
 	cscene_host.material = (int *)malloc(sizeof(int) * 1 * N);
-	cscene_host.light_pos = (float *)malloc(sizeof(float) * 3 * N_light);
-	cscene_host.light_col = (float *)malloc(sizeof(float) * 3 * N_light);
-	cscene_host.light_radius = (float *)malloc(sizeof(float) * 1 * N_light);
 	cscene_host.ambient = (float *)malloc(sizeof(float) * 3 * N_material);
 	cscene_host.diffuse = (float *)malloc(sizeof(float) * 3 * N_material);
 	cscene_host.specular = (float *)malloc(sizeof(float) * 3 * N_material);
@@ -268,13 +196,6 @@ bool RaytracerApplication::initialize()
 
 	scene.post_initialize();
 
-	for (int i = 0; i < N_light; i++) {
-		SphereLight l = scene.get_lights()[i];
-		l.position.to_array(cscene_host.light_pos + 3 * i);
-		l.color.to_array(cscene_host.light_col + 3 * i);
-		cscene_host.light_radius[i] = l.radius;
-	}
-
 	for (int i = 0; i < N_material; i++)
 	{
 		Material *m = scene.get_materials()[i];
@@ -292,9 +213,6 @@ bool RaytracerApplication::initialize()
 	cudaMemcpy(cscene.type, cscene_host.type, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.radius, cscene_host.radius, sizeof(float) * 1 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.material, cscene_host.material, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.light_pos, cscene_host.light_pos, sizeof(float) * 3 * N_light, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.light_col, cscene_host.light_col, sizeof(float) * 3 * N_light, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.light_radius, cscene_host.light_radius, sizeof(float) * 1 * N_light, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.ambient, cscene_host.ambient, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.diffuse, cscene_host.diffuse, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.specular, cscene_host.specular, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
@@ -314,7 +232,6 @@ bool RaytracerApplication::initialize()
 	cscene.near_clip = scene.camera.near_clip;
 	cscene.far_clip = scene.camera.far_clip;
 	cscene.N = N;
-	cscene.N_light = N_light;
 	cscene.N_material = N_material;
 
 	EnvMap &envmap = scene.envmap;
@@ -345,43 +262,8 @@ bool RaytracerApplication::initialize()
 
 	std::cout << "Cuda initialized" << std::endl;
 
-    // set the gl state
-    if ( load_gl ) {
-        float arr[4];
-        arr[3] = 1.0; // alpha is always 1
-
-        glClearColor(
-            scene.background_color.r,
-            scene.background_color.g,
-            scene.background_color.b,
-            1.0f );
-
-        scene.ambient_light.to_array( arr );
-        glLightModelfv( GL_LIGHT_MODEL_AMBIENT, arr );
-
-        const SphereLight* lights = scene.get_lights();
-
-        for ( size_t i = 0; i < NUM_GL_LIGHTS && i < scene.num_lights(); i++ )
-    {
-            const SphereLight& light = lights[i];
-            glEnable( LightConstants[i] );
-            light.color.to_array( arr );
-            glLightfv( LightConstants[i], GL_DIFFUSE, arr );
-            glLightfv( LightConstants[i], GL_SPECULAR, arr );
-            glLightf( LightConstants[i], GL_CONSTANT_ATTENUATION,
-              light.attenuation.constant );
-            glLightf( LightConstants[i], GL_LINEAR_ATTENUATION,
-              light.attenuation.linear );
-            glLightf( LightConstants[i], GL_QUADRATIC_ATTENUATION,
-              light.attenuation.quadratic );
-        }
-
-        glLightModeli( GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE );
-    }
 	// CUDA part
 	gpuErrchk(cudaMalloc((void **)&cimg, 4 * dheight * dwidth));
-	
-
     return true;
 }
 
@@ -391,31 +273,6 @@ void RaytracerApplication::destroy()
 
 void RaytracerApplication::update( real_t delta_time )
 {
-	if ( gpu_raytracing) {
-		return ;
-	}
-    if ( raytracing ) {
-        // do part of the raytrace
-        if ( !raytrace_finished ) {
-            assert( buffer );
-            raytrace_finished = raytracer.raytrace( buffer, &delta_time );
-        }
-    } else {
-        // copy camera over from camera control (if not raytracing)
-        camera_control.update( delta_time );
-        scene.camera = camera_control.camera;
-    }
-
-	// physics
-	static const size_t NUM_ITER = 20;
-
-	// step the physics simulation
-	if (!pause) {
-		real_t step_size = delta_time / NUM_ITER;
-		for (size_t i = 0; i < NUM_ITER; i++) {
-			scene.update(step_size * speed);
-		}
-	}
 }
 
 void RaytracerApplication::render()
@@ -439,19 +296,12 @@ void RaytracerApplication::render()
     glMatrixMode( GL_MODELVIEW );
     glLoadIdentity();
 
-	if ( raytracing || gpu_raytracing) {
-        // if raytracing, just display the buffer
+	if ( gpu_raytracing) {
         assert( buffer );
         glColor4d( 1.0, 1.0, 1.0, 1.0 );
         glRasterPos2f( -1.0f, -1.0f );
         glDrawPixels( buf_width, buf_height, GL_RGBA,
               GL_UNSIGNED_BYTE, &buffer[0] );
-
-    } else {
-        // else, render the scene using opengl
-        glPushAttrib( GL_ALL_ATTRIB_BITS );
-        render_scene( scene );
-        glPopAttrib();
     }
 }
 
@@ -459,10 +309,9 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
 {
     int width, height;
 
-    if ( !raytracing ) {
+    if ( !gpu_raytracing ) {
         camera_control.handle_event( this, event );
     }
-
 	scene.handle_event(event);
 
     switch ( event.type )
@@ -470,28 +319,8 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
     case SDL_KEYDOWN:
         switch ( event.key.keysym.sym )
         {
-        case KEY_RAYTRACE:
-            get_dimension( &width, &height );
-            toggle_raytracing( width, height );
-            break;
 		case KEY_RAYTRACE_GPU:
 			do_gpu_raytracing();
-			break;
-        case KEY_SEND_PHOTONS:
-            raytracer.initialize(&scene, options.num_samples, 0, 0);
-            queue_render_photon=true;
-			break;
-        case KEY_SCREENSHOT:
-            break;
-		case KEY_START_ANIMATION:
-            get_dimension( &width, &height );
-			break;
-		case KEY_MOTION_BLUR:
-			get_dimension(&width, &height);
-			start_motion_blur(width, height);
-			break;
-		case SDLK_SPACE:
-			pause = !pause;
 			break;
         default:
             break;
@@ -499,77 +328,6 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
     default:
         break;
     }
-}
-
-void RaytracerApplication::start_motion_blur( int width, int height )
-{
-	if (!scene.animated) {
-		std::cout << "The scene is not animated!" << std::endl;
-		return;
-	}
-    assert( width > 0 && height > 0 );
-
-	if (buffer)
-		free(buffer);
-	buffer = (unsigned char*) malloc (BUFFER_SIZE( width, height));
-	unsigned int *accum_buffer = (unsigned int*) malloc(BUFFER_SIZE(width, height) * sizeof (unsigned int));
-	buf_width = width;
-	buf_height = height;
-
-	// initialize the raytracer (first make sure camera aspect is correct)
-	scene.camera.aspect = real_t( width ) / real_t( height );
-
-	if (!raytracer.initialize(&scene, options.num_samples, width, height)) {
-		std::cout << "Raytracer initialization failed.\n";
-		return; // leave untoggled since initialization failed.
-	}
-
-	for (unsigned int j = 0; j < BUFFER_SIZE(width, height); j++)
-		accum_buffer[j] = 0;
-	for (int i = 0; i < frames; i++) {
-		raytracer.initialize(&scene, options.num_samples, width, height);
-		std::cout << "Raytracing frame " << i << " / " << frames << std::endl;
-		raytracer.raytrace(buffer, 0);
-		for (unsigned int j = 0; j < BUFFER_SIZE(width, height); j++)
-			accum_buffer[j] += buffer[j];
-	}
-	for (unsigned int j = 0; j < BUFFER_SIZE(width, height); j++)
-		buffer[j] = accum_buffer[j] / frames;
-	free(accum_buffer);
-	raytracing = true;
-	raytrace_finished = true;
-}
-void RaytracerApplication::toggle_raytracing( int width, int height )
-{
-    assert( width > 0 && height > 0 );
-
-    // do setup if starting a new raytrace
-    if ( !raytracing ) {
-		// only re-allocate if the dimensions changed
-		if ( buf_width != width || buf_height != height ) {
-			free( buffer );
-			buffer = (unsigned char*) malloc( BUFFER_SIZE( width, height ) );
-			if ( !buffer ) {
-				std::cout << "Unable to allocate buffer.\n";
-				return; // leave untoggled since we have no buffer.
-			}
-			buf_width = width;
-			buf_height = height;
-		}
-
-		// initialize the raytracer (first make sure camera aspect is correct)
-		scene.camera.aspect = real_t( width ) / real_t( height );
-
-		if (!raytracer.initialize(&scene, options.num_samples, width, height)) {
-			std::cout << "Raytracer initialization failed.\n";
-			return; // leave untoggled since initialization failed.
-		}
-
-        // reset flag that says we are done
-        raytrace_finished = false;
-    }
-
-    raytracing = !raytracing;
 }
 
 void RaytracerApplication::do_gpu_raytracing()
@@ -587,13 +345,11 @@ void RaytracerApplication::do_gpu_raytracing()
 	gpu_raytracing = true;
 	cudaRayTrace(&cscene, cimg);
 	gpuErrchk(cudaMemcpy(buffer, cimg, 4 * dwidth * dheight, cudaMemcpyDeviceToHost));
-
 }
 
 
 void RaytracerApplication::render_scene(const Scene& scene)
 {
-    // backup state so it doesn't mess up raytrace image rendering
     glPushAttrib( GL_ALL_ATTRIB_BITS );
     glPushClientAttrib( GL_CLIENT_ALL_ATTRIB_BITS );
 
@@ -602,92 +358,6 @@ void RaytracerApplication::render_scene(const Scene& scene)
         scene.background_color.g,
         scene.background_color.b,
         1.0f );
-    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
-    glEnable( GL_NORMALIZE );
-    glEnable( GL_DEPTH_TEST );
-    glEnable( GL_TEXTURE_2D );
-
-    // set camera transform
-
-    const Camera& camera = scene.camera;
-
-    glMatrixMode( GL_PROJECTION );
-    glLoadIdentity();
-    gluPerspective( camera.get_fov_degrees(),
-                    camera.get_aspect_ratio(),
-                    camera.get_near_clip(),
-                    camera.get_far_clip() );
-
-    const Vector3& campos = camera.get_position();
-    const Vector3 camref = camera.get_direction() + campos;
-    const Vector3& camup = camera.get_up();
-
-    glMatrixMode( GL_MODELVIEW );
-    glLoadIdentity();
-    gluLookAt( campos.x, campos.y, campos.z,
-               camref.x, camref.y, camref.z,
-               camup.x,  camup.y,  camup.z );
-
-    // render each object
-    if(queue_render_photon){
-        queue_render_photon = false;
-        raytracer.photonMap.update_photons();
-    }
-    raytracer.photonMap.render_photons();
-    
-    glEnable( GL_LIGHTING );
-    // set light data
-    float arr[4];
-    arr[3] = 1.0; // w is always 1
-
-    scene.ambient_light.to_array( arr );
-    glLightModelfv( GL_LIGHT_MODEL_AMBIENT, arr );
-
-    glLightModeli( GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE );
-
-    const SphereLight* lights = scene.get_lights();
-
-
-    for ( size_t i = 0; i < NUM_GL_LIGHTS && i < scene.num_lights(); i++ )
-    {
-        const SphereLight& light = lights[i];
-        glEnable( LightConstants[i] );
-        light.color.to_array( arr );
-        glLightfv( LightConstants[i], GL_DIFFUSE, arr );
-        glLightfv( LightConstants[i], GL_SPECULAR, arr );
-        glLightf( LightConstants[i], GL_CONSTANT_ATTENUATION,
-          light.attenuation.constant );
-        glLightf( LightConstants[i], GL_LINEAR_ATTENUATION,
-          light.attenuation.linear );
-        glLightf( LightConstants[i], GL_QUADRATIC_ATTENUATION,
-          light.attenuation.quadratic );
-        light.position.to_array( arr );
-        glLightfv( LightConstants[i], GL_POSITION, arr );
-    }
-
-    
-    Geometry* const* geometries = scene.get_geometries();
-
-    for (size_t i = 0; i < scene.num_geometries(); ++i)
-    {
-        const Geometry& geom = *geometries[i];
-        Vector3 axis;
-        real_t angle;
-
-        glPushMatrix();
-
-        glTranslated(geom.position.x, geom.position.y, geom.position.z);
-        geom.orientation.to_axis_angle(&axis, &angle);
-        glRotated(angle*(180.0/PI), axis.x, axis.y, axis.z);
-        glScaled(geom.scale.x, geom.scale.y, geom.scale.z);
-
-        geom.render();
-
-        glPopMatrix();
-    }
-
-
     glPopClientAttrib();
     glPopAttrib();
 }
