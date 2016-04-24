@@ -252,7 +252,7 @@ void cudaRayTraceKernel (unsigned char *img)
 				normal = orig_hit;
 				normal = quaternionXvector(rot_ptr[geom], normal);
 				normal = normalize(normal);
-				float3 diffuse = make_float3(0.20, 0.30, 0.40);//((float3 *)cuScene.diffuse)[material];
+				float3 diffuse = cuConstants.sphere_colors[geom];//make_float3(0.20, 0.30, 0.40);//((float3 *)cuScene.diffuse)[material];
 
 				// Direct diffuse
 				float3 surface_color = make_float3(0, 0, 0);

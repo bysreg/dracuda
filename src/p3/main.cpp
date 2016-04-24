@@ -189,9 +189,27 @@ void RaytracerApplication::destroy()
 {
 }
 
+Quaternion FromToRotation(Vector3 u, Vector3 v)
+{
+	Vector3 w = cross(u, v);
+	Quaternion q(1.f + dot(u, v), w.x, w.y, w.z);
+	return normalize(q);
+}
+
 void RaytracerApplication::update( real_t delta_time )
 {
 	time += delta_time;
+	// Camera
+	float time_scale = 0.5;
+	Vector3 pos(8 * sin(time * time_scale), 4, 8 * cos(time * time_scale));
+	Vector3 dir = -normalize(pos);
+	Vector3 look(0, 0, -1);
+	Vector3 up(0, 1, 0);
+	Vector3 v = dir + up * -dot(up, dir);
+	Quaternion q = FromToRotation(look, v);
+	Quaternion ret = FromToRotation(v, dir) * q;
+	pos.to_array(cscene.cam_position);
+	ret.to_array(cscene.cam_orientation);
 	do_gpu_raytracing();
 	/*
 	for (int i = 0; i < SPHERES; i++) {
