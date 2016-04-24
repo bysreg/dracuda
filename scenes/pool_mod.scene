@@ -106,20 +106,5 @@
         <normal x="0.0" y="1.0" z="0.0"/>
         <tex_coord u="0.0" v="0.0"/>
     </vertex>
-    
-    <triangle material="green">
-        <position x="0.0" y="0.0" z="0.0"/>
-        <vertex name="p1"/>
-        <vertex name="p2"/>
-        <vertex name="p3"/>
-    </triangle>
-    
-    <triangle material="green">
-        <position x="0.0" y="0.0" z="0.0"/>
-        <vertex name="p3"/>
-        <vertex name="p2"/>
-        <vertex name="p4"/>
-    </triangle>
-    
 </scene>
 

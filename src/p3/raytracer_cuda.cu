@@ -5,6 +5,7 @@
 #include <curand.h>
 #include <curand_kernel.h>
 #include "cycleTimer.h"
+
 #define EPS 0.0001
 
 inline __host__ __device__ float3 quaternionXvector(float4 q, float3 vec)
@@ -162,6 +163,7 @@ __device__ float3 do_material (int geom, float3 diffuse, float3 normal, float3 p
 }
 
 #define NSAMPLES 10
+#define SHADOW_RAYS 5
 
 __global__
 void curandSetupKernel()
@@ -178,10 +180,16 @@ void cudaRayTraceKernel (unsigned char *img)
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 	int w = y * cuScene.width + x;
 
-	img[4 * w + 0] = 255;
-	img[4 * w + 1] = 0;
-	img[4 * w + 2] = 0;
-	img[4 * w + 3] = 0;
+
+	__shared__ float mem[400];
+	int w2 = threadIdx.y * blockDim.x + threadIdx.x;
+	if (w2 < 7 * cuScene.N)
+		mem[w2] = cuScene.data[w2];
+	__syncthreads();
+
+	float3 *pos_ptr = (float3 *)(cuScene.data + 4 * cuScene.N);
+	float4 *rot_ptr = (float4 *)(cuScene.data);
+
 
 	// Calc Ray
 	float3 dir = quaternionXvector(*((float4 *)cuScene.cam_orientation), make_float3(0, 0, -1));
@@ -199,18 +207,23 @@ void cudaRayTraceKernel (unsigned char *img)
 
 	float di = (x + (sampleX + curand_uniform(cuScene.curand + w)) / NSAMPLES) / cuScene.width * 2 - 1;
 	float dj = (y + (sampleY + curand_uniform(cuScene.curand + w)) / NSAMPLES) / cuScene.height * 2 - 1;
+			/*
+	float di = (x + (sampleX + 0.5) / NSAMPLES) / cuScene.width * 2 - 1;
+	float dj = (y + (sampleY + 0.5) / NSAMPLES) / cuScene.height * 2 - 1;
+	*/
 	float3 ray_d = normalize(dir + dist * (dj * cU + di * AR * cR));
 	float3 ray_e = *((float3 *) cuScene.cam_position);
 
+	/*
 	float3 *pos_ptr = (float3 *)cuScene.position;
 	float4 *rot_ptr = (float4 *)cuScene.rotation;
+	*/
 	float3 *scl_ptr = (float3 *)cuScene.scale;
 
 	float3 color_mask = make_float3(1.0, 1.0, 1.0);
 	for (int bounce = 0; bounce < 1; bounce ++) {
 		int geom = -1;
 		float tmin = 10000.0;
-		float3 averager = make_float3(1.0 / 3, 1.0 / 3, 1.0 / 3);
 
 		for (int i = 0; i < cuScene.N; i++) {
 			float3 t_ray_d = ray_d;
@@ -254,7 +267,7 @@ void cudaRayTraceKernel (unsigned char *img)
 
 			// Direct diffuse
 			float3 surface_color = make_float3(0, 0, 0);
-			for (int i = 0; i < 3; i++) {
+			for (int i = 0; i < SHADOW_RAYS; i++) {
 				float3 sdir, tdir;
 				float u = curand_uniform(cuScene.curand + w);
 				float phi = 2 * 3.1415926535 * curand_uniform(cuScene.curand + w);
@@ -265,10 +278,10 @@ void cudaRayTraceKernel (unsigned char *img)
 				}
 				tdir = cross(normal, sdir);
 				float3 light_dir = sqrt(u) * (cos(phi) * sdir + sin(phi) * tdir) + sqrt(1 - u) * normal;
-				float shadow_factor = trace_shadow(hit, light_dir, 10000.0);
+				float shadow_factor = 1;//trace_shadow(hit, light_dir, 10000.0);
 				surface_color += shadow_factor;
 			}
-			surface_color *= 1 / 3.0 * 2.9;
+			surface_color *= 1 / (SHADOW_RAYS + 0.0) * 2.9;
 
 			float3 m = do_material(geom, diffuse, normal, orig_hit);
 			surface_color += 1.5f * clamp(0.3f-0.7f*normal.y,0.0f,1.0f)*make_float3(0.0,0.2,0.0);
@@ -288,17 +301,20 @@ void cudaRayTraceKernel (unsigned char *img)
 			accumulated_color += color;//; * color_mask;
 			color_mask *= surface_color;
 		} else {
-			accumulated_color += (*(float3 *)cuScene.ambient_light_col + color) * color_mask;
+			//accumulated_color += (*(float3 *)cuScene.ambient_light_col + color) * color_mask;
 			break;
 		}
 	}
 	}
 	
 	accumulated_color /= NSAMPLES * NSAMPLES;
-	img[4 * w + 0] = clamp(__powf(accumulated_color.x, 0.45) * 255, 0.0, 255.0);
-	img[4 * w + 1] = clamp(__powf(accumulated_color.y, 0.45) * 255, 0.0, 255.0);
-	img[4 * w + 2] = clamp(__powf(accumulated_color.z, 0.45) * 255, 0.0, 255.0);
-	img[4 * w + 3] = 255;
+	uchar4 col0;
+	col0.x = clamp(__powf(accumulated_color.x, 0.45) * 255, 0.0, 255.0);
+	col0.y = clamp(__powf(accumulated_color.y, 0.45) * 255, 0.0, 255.0);
+	col0.z = clamp(__powf(accumulated_color.z, 0.45) * 255, 0.0, 255.0);
+	col0.w = 255;
+	*((uchar4 *)img + w) = col0;
+	
 }
 
 void cudaRayTrace(cudaScene *scene, unsigned char *img)
@@ -309,9 +325,11 @@ void cudaRayTrace(cudaScene *scene, unsigned char *img)
 	dim3 dimGrid(scene->width / 16, scene->height / 16);
 	cudaGetLastError();
 	curandSetupKernel<<<dimGrid, dimBlock>>>();
+	cudaDeviceSynchronize();
 
 	double startTime = CycleTimer::currentSeconds();
 	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(img);
+	cudaDeviceSynchronize();
 	printf("CUDA rendering time: %lf\n", CycleTimer::currentSeconds() - startTime);
 
 	cudaError_t error = cudaGetLastError();

@@ -85,12 +85,10 @@ struct Options
     const char* input_filename;
     // not allocated, pointed it to something static
     const char* output_filename;
-	const char* animation_prefix;
     // window dimensions
     int width, height;
     int num_samples;
 	bool motion_blur = false;
-	bool animation = false;
 	bool master = false;
 	bool slave = false;
 
@@ -109,8 +107,6 @@ public:
     virtual ~RaytracerApplication() {
 		if (buffer)
 			free( buffer );
-		if (animation_buffer)
-			free(animation_buffer);
 	}
 
     virtual bool initialize();
@@ -121,13 +117,10 @@ public:
 
     // flips raytracing, does any necessary initialization
     void toggle_raytracing( int width, int height );
-	void start_animation(int width, int height);
 	void start_motion_blur(int width, int height);
-	void output_animation( int width, int height , const char *prefix);
 	void do_gpu_raytracing();
 
     // writes the current raytrace buffer to the output file
-    void output_image();
 
     Raytracer raytracer;
 
@@ -145,7 +138,6 @@ public:
 
     // the image buffer for raytracing
     unsigned char* buffer = 0;
-	unsigned char* animation_buffer = 0;
 	int frames;
     // width and height of the buffer
     int buf_width, buf_height;
@@ -158,8 +150,6 @@ public:
 	bool gpu_raytracing;
     // false if there is more raytracing to do
     bool raytrace_finished;
-	real_t animation_time = 0;
-	bool  animation_finished = false;
 };
 
 bool RaytracerApplication::initialize()
@@ -203,9 +193,9 @@ bool RaytracerApplication::initialize()
 	int N_light = scene.num_lights();
 	int N_material = scene.num_materials();
 
-	gpuErrchk(cudaMalloc((void **)&cscene.position, sizeof(float) * 3 * N));
+	//gpuErrchk(cudaMalloc((void **)&cscene.position, sizeof(float) * 3 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.scale, sizeof(float) * 3 * N));
-	gpuErrchk(cudaMalloc((void **)&cscene.rotation, sizeof(float) * 4 * N));
+	//gpuErrchk(cudaMalloc((void **)&cscene.rotation, sizeof(float) * 4 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.type, sizeof(int) * 1 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.radius, sizeof(float) * 1 * N));
 	gpuErrchk(cudaMalloc((void **)&cscene.material, sizeof(float) * 1 * N));
@@ -297,8 +287,8 @@ bool RaytracerApplication::initialize()
 	///cudaMemcpy(cscene.rotation, cscene_host.rotation, sizeof(float) * 4 * N, cudaMemcpyHostToDevice);
 	//gpuErrchk(cudaMemcpy(cscene.data + 4 * N, cscene_host.position, sizeof(float) * 3 * N, cudaMemcpyHostToDevice));
 	//gpuErrchk(cudaMemcpy(cscene.data, cscene_host.rotation, sizeof(float) * 4 * N, cudaMemcpyHostToDevice));
-	cudaMemcpy(cscene.data, cscene_host.data, sizeof(float) * 7 * N, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.scale, cscene_host.scale, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
+	gpuErrchk(cudaMemcpy(cscene.data, cscene_host.data, sizeof(float) * 7 * N, cudaMemcpyHostToDevice));
+	gpuErrchk(cudaMemcpy(cscene.scale, cscene_host.scale, sizeof(float) * 3 * N, cudaMemcpyHostToDevice));
 	cudaMemcpy(cscene.type, cscene_host.type, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.radius, cscene_host.radius, sizeof(float) * 1 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.material, cscene_host.material, sizeof(int) * 1 * N, cudaMemcpyHostToDevice);
@@ -311,7 +301,8 @@ bool RaytracerApplication::initialize()
 	cudaMemcpy(cscene.vertex0, cscene_host.vertex0, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.vertex1, cscene_host.vertex1, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
 	cudaMemcpy(cscene.vertex2, cscene_host.vertex2, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
-	cudaMemcpy(cscene.data, cscene_host.vertex2, sizeof(float) * 7 * N, cudaMemcpyHostToDevice);
+	//cudaMemcpy(cscene.data, cscene_host.vertex2, sizeof(float) * 7 * N, cudaMemcpyHostToDevice);
+	
 
 
 	
@@ -425,8 +416,6 @@ void RaytracerApplication::update( real_t delta_time )
 			scene.update(step_size * speed);
 		}
 	}
-
-	animation_time += delta_time;
 }
 
 void RaytracerApplication::render()
@@ -450,19 +439,7 @@ void RaytracerApplication::render()
     glMatrixMode( GL_MODELVIEW );
     glLoadIdentity();
 
-	if ( animation_finished ) {
-        assert( animation_buffer );
-		int cycles = animation_time / scene.animation_duration;
-		int current_frame = (animation_time - cycles * scene.animation_duration) * scene.animation_fps;
-        glColor4d( 1.0, 1.0, 1.0, 1.0 );
-        glRasterPos2f( -1.0f, -1.0f );
-		if (current_frame >= frames)
-			current_frame = frames - 1;
-		if (current_frame < 0)
-			current_frame = 0;
-        glDrawPixels( buf_width, buf_height, GL_RGBA,
-              GL_UNSIGNED_BYTE, animation_buffer + current_frame * BUFFER_SIZE(buf_width, buf_height) );
-	} else if ( raytracing || gpu_raytracing) {
+	if ( raytracing || gpu_raytracing) {
         // if raytracing, just display the buffer
         assert( buffer );
         glColor4d( 1.0, 1.0, 1.0, 1.0 );
@@ -505,13 +482,9 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
             queue_render_photon=true;
 			break;
         case KEY_SCREENSHOT:
-            output_image();
             break;
 		case KEY_START_ANIMATION:
             get_dimension( &width, &height );
-			start_animation( width, height);
-			animation_time = 0;
-			animation_finished = true;
 			break;
 		case KEY_MOTION_BLUR:
 			get_dimension(&width, &height);
@@ -540,7 +513,6 @@ void RaytracerApplication::start_motion_blur( int width, int height )
 		free(buffer);
 	buffer = (unsigned char*) malloc (BUFFER_SIZE( width, height));
 	unsigned int *accum_buffer = (unsigned int*) malloc(BUFFER_SIZE(width, height) * sizeof (unsigned int));
-	frames = scene.animation_duration * scene.animation_fps;
 	buf_width = width;
 	buf_height = height;
 
@@ -555,8 +527,6 @@ void RaytracerApplication::start_motion_blur( int width, int height )
 	for (unsigned int j = 0; j < BUFFER_SIZE(width, height); j++)
 		accum_buffer[j] = 0;
 	for (int i = 0; i < frames; i++) {
-		double time = i / scene.animation_fps;
-		scene.update_animation(time);
 		raytracer.initialize(&scene, options.num_samples, width, height);
 		std::cout << "Raytracing frame " << i << " / " << frames << std::endl;
 		raytracer.raytrace(buffer, 0);
@@ -568,79 +538,6 @@ void RaytracerApplication::start_motion_blur( int width, int height )
 	free(accum_buffer);
 	raytracing = true;
 	raytrace_finished = true;
-}
-void RaytracerApplication::start_animation( int width, int height )
-{
-	if (!scene.animated) {
-		std::cout << "The scene is not animated!" << std::endl;
-		return;
-	}
-    assert( width > 0 && height > 0 );
-
-	frames = scene.animation_duration * scene.animation_fps;
-	animation_buffer = (unsigned char*) malloc (BUFFER_SIZE( width, height) * frames);
-	if ( !animation_buffer ) {
-		std::cout << "Unable to allocate buffer.\n";
-		return; // leave untoggled since we have no buffer.
-	}
-	buf_width = width;
-	buf_height = height;
-
-	// initialize the raytracer (first make sure camera aspect is correct)
-	scene.camera.aspect = real_t( width ) / real_t( height );
-
-	if (!raytracer.initialize(&scene, options.num_samples, width, height)) {
-		std::cout << "Raytracer initialization failed.\n";
-		return; // leave untoggled since initialization failed.
-	}
-
-	for (int i = 0; i < frames; i++) {
-		double time = i / scene.animation_fps;
-		scene.update_animation(time);
-		raytracer.initialize(&scene, options.num_samples, width, height);
-		std::cout << "Raytracing frame " << i << " / " << frames << std::endl;
-		raytracer.raytrace(animation_buffer + i * BUFFER_SIZE(width, height), 0);
-	}
-	animation_finished = true;
-}
-
-void RaytracerApplication::output_animation( int width, int height , const char *prefix)
-{
-	if (!scene.animated) {
-		std::cout << "The scene is not animated!" << std::endl;
-		return;
-	}
-    assert( width > 0 && height > 0 );
-
-	frames = scene.animation_duration * scene.animation_fps;
-	if (buffer)
-		free(buffer);
-	buffer = (unsigned char*) malloc (BUFFER_SIZE( width, height));
-	if ( !buffer ) {
-		std::cout << "Unable to allocate buffer.\n";
-		return; // leave untoggled since we have no buffer.
-	}
-	buf_width = width;
-	buf_height = height;
-
-	// initialize the raytracer (first make sure camera aspect is correct)
-	scene.camera.aspect = real_t( width ) / real_t( height );
-
-	if (!raytracer.initialize(&scene, options.num_samples, width, height)) {
-		std::cout << "Raytracer initialization failed.\n";
-		return; // leave untoggled since initialization failed.
-	}
-
-	char filename[1024];
-	for (int i = 0; i < frames; i++) {
-		double time = i / scene.animation_fps;
-		scene.update_animation(time);
-		raytracer.initialize(&scene, options.num_samples, width, height);
-		std::cout << "Raytracing frame " << i << " / " << frames << std::endl;
-		raytracer.raytrace(buffer, 0);
-		sprintf(filename, "shots/%s%02d.png", prefix, i);
-		imageio_save_image(filename, buffer, buf_width, buf_height);
-	}
 }
 void RaytracerApplication::toggle_raytracing( int width, int height )
 {
@@ -691,35 +588,6 @@ void RaytracerApplication::do_gpu_raytracing()
 	cudaRayTrace(&cscene, cimg);
 	gpuErrchk(cudaMemcpy(buffer, cimg, 4 * dwidth * dheight, cudaMemcpyDeviceToHost));
 
-}
-void RaytracerApplication::output_image()
-{
-    static const size_t MAX_LEN = 256;
-    const char* filename;
-    char buf[MAX_LEN];
-
-    if ( !buffer ) {
-        std::cout << "No image to output.\n";
-        return;
-    }
-
-    assert( buf_width > 0 && buf_height > 0 );
-
-    filename = options.output_filename;
-
-    // if we weren't given a file, use a default name
-    if (!filename)
-    {
-        imageio_gen_name(buf, MAX_LEN);
-        filename = buf;
-    }
-
-    if (imageio_save_image(filename, buffer, buf_width, buf_height))
-    {
-        std::cout << "Saved raytraced image to '" << filename << "'.\n";
-    } else {
-        std::cout << "Error saving raytraced image to '" << filename << "'.\n";
-    }
 }
 
 
@@ -824,56 +692,14 @@ void RaytracerApplication::render_scene(const Scene& scene)
     glPopAttrib();
 }
 
-} /* _462 */
+}
 
 using namespace _462;
 
-/**
- * Prints program usage.
- */
-static void print_usage( const char* progname )
-{
-    std::cout << "Usage: " << progname <<
-    "input_scene [-n num_samples] [-r] [-d width"
-    " height] [-o output_file]\n"
-        "\n" \
-        "Options:\n" \
-        "\n" \
-        "\t-r:\n" \
-        "\t\tRaytraces the scene and saves to the output file without\n" \
-        "\t\tloading a window or creating an opengl context.\n" \
-        "\t-d width height\n" \
-        "\t\tThe dimensions of image to raytrace (and window if using\n" \
-        "\t\tand opengl context. Defaults to width=800, height=600.\n" \
-        "\t-s input_scene:\n" \
-        "\t\tThe scene file to load and raytrace.\n" \
-        "\toutput_file:\n" \
-        "\t\tThe output file in which to write the rendered images.\n" \
-        "\t\tIf not specified, default timestamped filenames are used.\n" \
-        "\n" \
-        "Instructions:\n" \
-        "\n" \
-        "\tPress 'r' to raytrace the scene. Press 'r' again to go back to\n" \
-        "\tgo back to OpenGL rendering. Press 'f' to dump the most recently\n" \
-        "\traytraced image to the output file.\n" \
-        "\n" \
-        "\tUse the mouse and 'w', 'a', 's', 'd', 'q', and 'e' to move the\n" \
-        "\tcamera around. The keys translate the camera, and left and right\n" \
-        "\tmouse buttons rotate the camera.\n" \
-        "\n" \
-        "\tIf not using windowed mode (i.e., -r was specified), then output\n" \
-        "\timage will be automatically generated and the program will exit.\n" \
-        "\n";
-}
-
-
-/**
- * Parses args into an Options struct. Returns true on success, false on failure.
- */
 static bool parse_args( Options* opt, int argc, char* argv[] )
 {
     if ( argc < 2 ) {
-        print_usage( argv[0] );
+		std::cout << "More arguments" << std::endl;
         return false;
     }
 
@@ -911,27 +737,10 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
                 return false;
             }
             break;
-        case 'r':
-            opt->open_window = false;
-            break;
         case 'n':
             if (i < argc - 1)
                 opt->num_samples = atoi(argv[++i]);
             break;
-        case 'o':
-            if (i < argc - 1)
-                opt->output_filename = argv[++i];
-			break;
-		case 'p':
-            if (i < argc - 1)
-                opt->animation_prefix = argv[++i];
-			break;
-		case 'm':
-			opt->motion_blur = true;
-			break;
-		case 'a':
-			opt->animation = true;
-			break;
         }
     }
 
@@ -941,11 +750,6 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
 using namespace std;
 int main( int argc, char* argv[] )
 {
-#ifdef OPENMP
-    omp_set_num_threads(MAX_THREADS);
-#endif
-
-    
     Options opt;
 	int ret = 0;
 
@@ -975,39 +779,13 @@ int main( int argc, char* argv[] )
 		Slave::start(opt.host);
 	}	
 
-    // either launch a window or do a full raytrace without one,
-    // depending on the option
-    if ( opt.open_window ) {
+	real_t fps = 60.0;
+	const char* title = "15462 Project 3 - Raytracer";
+	// start a new application
+	ret = Application::start_application(&app,
+					  opt.width,
+					  opt.height,
+					  fps, title);
 
-        real_t fps = 60.0;
-        const char* title = "15462 Project 3 - Raytracer";
-        // start a new application
-        ret = Application::start_application(&app,
-                          opt.width,
-                          opt.height,
-                          fps, title);
-
-    }
-    else
-    {
-        app.initialize();
-
-		if (opt.motion_blur) {
-			app.start_motion_blur(opt.width, opt.height);
-			app.output_image();
-		} else if (opt.animation) {
-			app.output_animation(opt.width, opt.height, opt.animation_prefix);
-		} else {
-			app.toggle_raytracing( opt.width, opt.height );
-			if ( !app.raytracing ) {
-				return 1; // some error occurred
-			}
-			assert( app.buffer );
-			// raytrace until done
-			app.raytracer.raytrace( app.buffer, 0 );
-			app.output_image();
-		}
-		ret = 0;
-    }
 	return ret;
 }
