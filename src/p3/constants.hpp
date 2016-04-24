@@ -3,6 +3,8 @@
 
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <curand.h>
+#include <curand_kernel.h>
 
 #define PLANES 1
 #define SPHERES 4
@@ -19,6 +21,8 @@ struct PoolConstants
 	float3 lower_bounds[PLANES];
 	float3 upper_bounds[PLANES];
 	float positions[PLANES];
+
+	curandState *curand;
 };
 
 extern PoolConstants poolConstants;

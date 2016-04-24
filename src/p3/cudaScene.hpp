@@ -12,10 +12,6 @@ struct cudaScene
 	int N;
 	float *position; // float3 * N
 	float *rotation; // float4 * N
-
-	// Material
-	int N_material;
-	float *diffuse; // float3 * N
 	float *data;
 
 	// Camera
@@ -28,7 +24,6 @@ struct cudaScene
 
 	int width;
 	int height;
-	curandState *curand;
 };
 
 #endif

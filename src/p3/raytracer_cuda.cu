@@ -151,8 +151,8 @@ void curandSetupKernel()
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
-	int w = y * cuScene.width + x;
-	curand_init(1578, w, 0, cuScene.curand + w);
+	int w = y * 800 + x;
+	curand_init(1578, w, 0, cuConstants.curand + w);
 }
 __global__
 void cudaRayTraceKernel (unsigned char *img)
@@ -167,6 +167,7 @@ void cudaRayTraceKernel (unsigned char *img)
 	if (w2 < 7 * SPHERES)
 		mem[w2] = cuScene.data[w2];
 	__syncthreads();
+	curandState *curand = cuConstants.curand + w;
 
 	float3 *pos_ptr = (float3 *)(cuScene.data + 4 * SPHERES);
 	float4 *rot_ptr = (float4 *)(cuScene.data);
@@ -185,12 +186,12 @@ void cudaRayTraceKernel (unsigned char *img)
 	for (int sampleX = 0; sampleX < NSAMPLES; sampleX++)
 	for (int sampleY = 0; sampleY < NSAMPLES; sampleY++) {
 
+				/*
 		float di = (x + (sampleX + curand_uniform(cuScene.curand + w)) / NSAMPLES) / cuScene.width * 2 - 1;
 		float dj = (y + (sampleY + curand_uniform(cuScene.curand + w)) / NSAMPLES) / cuScene.height * 2 - 1;
-				/*
+		*/
 		float di = (x + (sampleX + 0.5) / NSAMPLES) / cuScene.width * 2 - 1;
 		float dj = (y + (sampleY + 0.5) / NSAMPLES) / cuScene.height * 2 - 1;
-		*/
 		float3 ray_d = normalize(dir + dist * (dj * cU + di * AR * cR));
 		float3 ray_e = *((float3 *) cuScene.cam_position);
 
@@ -257,8 +258,8 @@ void cudaRayTraceKernel (unsigned char *img)
 				float3 surface_color = make_float3(0, 0, 0);
 				for (int i = 0; i < SHADOW_RAYS; i++) {
 					float3 sdir, tdir;
-					float u = curand_uniform(cuScene.curand + w);
-					float phi = 2 * 3.1415926535 * curand_uniform(cuScene.curand + w);
+					float u = curand_uniform(curand);
+					float phi = 2 * 3.1415926535 * curand_uniform(curand);
 					if (abs(normal.x) < 0.5) {
 						sdir = cross(normal, make_float3(1, 0, 0));
 					} else {
@@ -305,18 +306,25 @@ void cudaRayTraceKernel (unsigned char *img)
 	
 }
 
+void cudaInitialize()
+{
+	initialize_constants();
+	gpuErrchk(cudaMalloc((void **)&poolConstants.curand, sizeof(curandState) * 800 * 600));
+	gpuErrchk(cudaMemcpyToSymbol(cuConstants, &poolConstants, sizeof(PoolConstants)));
+	dim3 dimBlock(16, 16);
+	dim3 dimGrid(800 / 16, 600 / 16);
+	curandSetupKernel<<<dimGrid, dimBlock>>>();
+	cudaDeviceSynchronize();
+}
+
 void cudaRayTrace(cudaScene *scene, unsigned char *img)
 {
-	printf("%p\n", img);
-	initialize_constants();
+	printf("CudaRayTrace\n");
+	printf("%p\n", scene);
 	gpuErrchk(cudaMemcpyToSymbol(cuScene, scene, sizeof(cudaScene)));
-	gpuErrchk(cudaMemcpyToSymbol(cuConstants, &poolConstants, sizeof(PoolConstants)));
 
 	dim3 dimBlock(16, 16);
 	dim3 dimGrid(scene->width / 16, scene->height / 16);
-	cudaGetLastError();
-	curandSetupKernel<<<dimGrid, dimBlock>>>();
-	cudaDeviceSynchronize();
 
 	double startTime = CycleTimer::currentSeconds();
 	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(img);
@@ -326,5 +334,4 @@ void cudaRayTrace(cudaScene *scene, unsigned char *img)
 	cudaError_t error = cudaGetLastError();
 	if ( cudaSuccess != error )
 			printf( "Error: %d\n", error );
-
 }

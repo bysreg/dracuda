@@ -75,6 +75,7 @@ public:
     virtual void update( real_t );
     virtual void render();
     virtual void handle_event( const SDL_Event& event );
+	float time = 0;
 
     // flips raytracing, does any necessary initialization
 	void do_gpu_raytracing();
@@ -123,25 +124,16 @@ bool RaytracerApplication::initialize()
         std::cout << "Out of memory error while initializing scene\n.";
         return false;
     }
-	// Alloc cuda mem
-	int N = scene.num_geometries();
-	int N_light = scene.num_lights();
-	int N_material = scene.num_materials();
 
-	//gpuErrchk(cudaMalloc((void **)&cscene.position, sizeof(float) * 3 * N));
-	//gpuErrchk(cudaMalloc((void **)&cscene.rotation, sizeof(float) * 4 * N));
-	gpuErrchk(cudaMalloc((void **)&cscene.diffuse, sizeof(float) * 3 * N_material));
-	gpuErrchk(cudaMalloc((void **)&cscene.curand, sizeof(curandState) * dwidth * dheight));
-	gpuErrchk(cudaMalloc((void **)&cscene.data, sizeof(float) * 7 * N));
+	gpuErrchk(cudaMalloc((void **)&cscene.data, sizeof(float) * 7 * SPHERES));
 
 	// Mirrored host mem
-	cscene_host.diffuse = (float *)malloc(sizeof(float) * 3 * N_material);
-	cscene_host.data = (float *)malloc(sizeof(float) * 7 * N);
-	cscene_host.position = cscene_host.data + 4 * N;
+	cscene_host.data = (float *)malloc(sizeof(float) * 7 * SPHERES);
+	cscene_host.position = cscene_host.data + 4 * SPHERES;
 	cscene_host.rotation = cscene_host.data;
 	
 
-	for (size_t i = 0; i < N; i++) {
+	for (size_t i = 0; i < SPHERES; i++) {
 		Geometry *g = scene.get_geometries()[i];
 		g->post_initialize();
 		g->position.to_array(cscene_host.position + 3 * i);
@@ -150,18 +142,7 @@ bool RaytracerApplication::initialize()
 
 	scene.post_initialize();
 
-	for (int i = 0; i < N_material; i++)
-	{
-		Material *m = scene.get_materials()[i];
-		m->diffuse.to_array(cscene_host.diffuse + 3 * i);
-	}
-
-	//cudaMemcpy(cscene.position, cscene_host.position, sizeof(float) * 3 * N, cudaMemcpyHostToDevice);
-	///cudaMemcpy(cscene.rotation, cscene_host.rotation, sizeof(float) * 4 * N, cudaMemcpyHostToDevice);
-	//gpuErrchk(cudaMemcpy(cscene.data + 4 * N, cscene_host.position, sizeof(float) * 3 * N, cudaMemcpyHostToDevice));
-	//gpuErrchk(cudaMemcpy(cscene.data, cscene_host.rotation, sizeof(float) * 4 * N, cudaMemcpyHostToDevice));
-	gpuErrchk(cudaMemcpy(cscene.data, cscene_host.data, sizeof(float) * 7 * N, cudaMemcpyHostToDevice));
-	cudaMemcpy(cscene.diffuse, cscene_host.diffuse, sizeof(float) * 3 * N_material, cudaMemcpyHostToDevice);
+	gpuErrchk(cudaMemcpy(cscene.data, cscene_host.data, sizeof(float) * 7 * SPHERES, cudaMemcpyHostToDevice));
 	
 	scene.camera.position.to_array(cscene.cam_position);
 	scene.camera.orientation.to_array(cscene.cam_orientation);
@@ -169,8 +150,6 @@ bool RaytracerApplication::initialize()
 	cscene.aspect = (dwidth + 0.0) / (dheight + 0.0);
 	cscene.near_clip = scene.camera.near_clip;
 	cscene.far_clip = scene.camera.far_clip;
-	cscene.N = N;
-	cscene.N_material = N_material;
 
 	EnvMap &envmap = scene.envmap;
 	if (envmap.enabled) {
@@ -198,10 +177,11 @@ bool RaytracerApplication::initialize()
 	bindEnvmap(cu_3darray, channelDesc);
 	}
 
-	std::cout << "Cuda initialized" << std::endl;
 
 	// CUDA part
 	gpuErrchk(cudaMalloc((void **)&cimg, 4 * dheight * dwidth));
+	cudaInitialize();
+	std::cout << "Cuda initialized" << std::endl;
     return true;
 }
 
@@ -211,12 +191,20 @@ void RaytracerApplication::destroy()
 
 void RaytracerApplication::update( real_t delta_time )
 {
+	time += delta_time;
+	do_gpu_raytracing();
+	/*
+	for (int i = 0; i < SPHERES; i++) {
+		cscene_host.data[4 * SPHERES + 3 * i] = i * sin(time);
+		cscene_host.data[4 * SPHERES + 3 * i + 2] = i * cos(time);
+	}
+	*/
+	
 }
 
 void RaytracerApplication::render()
 {
     int width, height;
-
     // query current window size, resize viewport
     get_dimension( &width, &height );
     glViewport( 0, 0, width, height );
@@ -234,13 +222,13 @@ void RaytracerApplication::render()
     glMatrixMode( GL_MODELVIEW );
     glLoadIdentity();
 
-	if ( gpu_raytracing) {
-        assert( buffer );
-        glColor4d( 1.0, 1.0, 1.0, 1.0 );
-        glRasterPos2f( -1.0f, -1.0f );
-        glDrawPixels( buf_width, buf_height, GL_RGBA,
-              GL_UNSIGNED_BYTE, &buffer[0] );
-    }
+	if (!buffer) {
+		buffer = new unsigned char [width * height * 4];
+	}
+	glColor4d( 1.0, 1.0, 1.0, 1.0 );
+	glRasterPos2f( -1.0f, -1.0f );
+	glDrawPixels( buf_width, buf_height, GL_RGBA,
+		  GL_UNSIGNED_BYTE, &buffer[0] );
 }
 
 void RaytracerApplication::handle_event( const SDL_Event& event )
@@ -280,7 +268,9 @@ void RaytracerApplication::do_gpu_raytracing()
 
 	cscene.width = width;
 	cscene.height = height;
+	printf("CSC :%p\n", &cscene);
 	gpu_raytracing = true;
+	gpuErrchk(cudaMemcpy(cscene.data, cscene_host.data, sizeof(float) * 7 * SPHERES, cudaMemcpyHostToDevice));
 	cudaRayTrace(&cscene, cimg);
 	gpuErrchk(cudaMemcpy(buffer, cimg, 4 * dwidth * dheight, cudaMemcpyDeviceToHost));
 }
@@ -387,7 +377,7 @@ int main( int argc, char* argv[] )
 		Slave::start(opt.host);
 	}	
 
-	real_t fps = 60.0;
+	real_t fps = 20.0;
 	const char* title = "15462 Project 3 - Raytracer";
 	// start a new application
 	ret = Application::start_application(&app,
