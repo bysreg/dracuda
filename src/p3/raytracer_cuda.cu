@@ -32,13 +32,13 @@ inline __host__ __device__ float4 quaternionConjugate(float4 q)
 __constant__ cudaScene cuScene;
 __constant__ PoolConstants cuConstants;
 
-texture <uchar4, cudaTextureTypeCubemap> envmap;
+texture <float4, cudaTextureType2D> envmap;
 
 void bindEnvmap (cudaArray * array, cudaChannelFormatDesc &channelDesc)
 {
 	envmap.addressMode[0] = cudaAddressModeWrap;
 	envmap.addressMode[1] = cudaAddressModeWrap;
-	envmap.filterMode = cudaFilterModePoint;
+	envmap.filterMode = cudaFilterModeLinear;
 	envmap.normalized = true;
 	cudaBindTextureToArray(envmap, array, channelDesc);
 }
@@ -57,10 +57,15 @@ __device__ float sphereIntersectionTest(float3 ray_d, float3 ray_e)
 }
 __device__ float3 doEnvironment( float3 rd )
 {
-	uchar4 color_raw = texCubemap(envmap, rd.x, rd.y, rd.z);
+	float r = 1 / 3.1415926 * acos(rd.z) / sqrt(rd.x * rd.x + rd.y * rd.y);
+	
+	float4 color_raw = tex2D(envmap, rd.x * r / 2 + 0.5, rd.y * r / 2 + 0.5);
 
-	float3 color = make_float3(color_raw.x / 255.0, color_raw.y / 255.0, color_raw.z / 255.0);
-	return 24.0 * make_float3(powf(color.x, 2.2), powf(color.y, 2.2), powf(color.z, 2.2));
+	float3 color = make_float3(color_raw.x, color_raw.y, color_raw.z);
+
+	//float3 color = make_float3(color_raw.x / 255.0, color_raw.y / 255.0, color_raw.z / 255.0);
+	//return make_float3(500000.0, 0, 0);
+	return 24 * make_float3(powf(color.x, 2.2), powf(color.y, 2.2), powf(color.z, 2.2));
 }
 
 
@@ -288,16 +293,24 @@ void cudaRayTraceKernel (unsigned char *img)
 
 				float fre = 0.04 + 4 * powf(clamp( 1.0 + dot(normal, ray_d), 0.0f, 1.0f ), 5.0f) ;
 				float step = 0.0;
-				float3 ref = ray_d - 2 * normal * dot(normal, ray_d);
+				float3 ref = normalize(ray_d - 2 * normal * dot(normal, ray_d));
 				if (ref.y > 0)
 					step = 1.0;
 
 				if (geom <= 3)
-				surface_color += 1.0 * fre * step;
+					surface_color += 1.0 * fre * step * doEnvironment(ref);
 				color += surface_color * m;
 				accumulated_color += color;
 			} else {
 				accumulated_color += make_float3(0.0, 1.0, 0.0);
+				/*
+				float3 hit = tmin * ray_d + ray_e;
+				if (hit.x > -1 && hit.x < 1 && hit.z > -1 && hit.z < 1) {
+					float4 c = tex2D(envmap, hit.x, hit.z);
+					accumulated_color += make_float3(c.x, c.y, c.z);
+				}
+				*/
+
 			}
 		} else {
 			break;

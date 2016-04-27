@@ -128,31 +128,31 @@ bool RaytracerApplication::initialize()
 	cscene.near_clip = scene.camera.near_clip;
 	cscene.far_clip = scene.camera.far_clip;
 
-	EnvMap &envmap = scene.envmap;
-	if (envmap.enabled) {
-		envmap.initialize();
-	int num_faces  = 6;
-	int width = envmap.posx.width;
-	int height = envmap.posx.height;
-	std::cout << "Width : " << width << std::endl;
 
-	int size = num_faces * width * height * sizeof(uchar4) ;
-	int face_size = width * height * sizeof (uchar4);
-
-	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned );
-	cudaArray *cu_3darray;
-	cudaMalloc3DArray(&cu_3darray, &channelDesc, make_cudaExtent(width, height, num_faces), cudaArrayCubemap);
-	unsigned char *envmap_array = new unsigned char [size];
-	memcpy(envmap_array, envmap.posx.data, face_size);
-	memcpy(envmap_array + face_size, envmap.negx.data, face_size);
-	memcpy(envmap_array + face_size * 2, envmap.posy.data, face_size);
-	memcpy(envmap_array + face_size * 3, envmap.negy.data, face_size);
-	memcpy(envmap_array + face_size * 4, envmap.posz.data, face_size);
-	memcpy(envmap_array + face_size * 5, envmap.negz.data, face_size);
-
-	cudaMemcpyToArray(cu_3darray, 0, 0, envmap_array, size, cudaMemcpyHostToDevice);
-	bindEnvmap(cu_3darray, channelDesc);
+	int width, height;
+	float endian;
+	FILE *file = fopen("images/stpeters_probe.pfm", "r");
+	char buffer[10];
+	fscanf(file, "%s\n", buffer);
+	fscanf(file, "%d %d\n", &width, &height);
+	fscanf(file, "%f\n", &endian);
+	int size = width * height * sizeof(float4) ;
+	printf("HW: %d %d\n", width, height);
+	float *array = (float *)malloc(size);
+	fread(array, sizeof(float), height * width * 3, file);
+	for (int i = height * width - 1; i >= 0; i--) {
+		array[4 * i + 3] = 1.000;
+		array[4 * i + 2] = array[3 * i + 2];
+		array[4 * i + 1] = array[3 * i + 1];
+		array[4 * i + 0] = array[3 * i + 0];
 	}
+
+	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat );
+	cudaArray *cu_2darray;
+	gpuErrchk(cudaMallocArray(&cu_2darray, &channelDesc, width, height));
+
+	gpuErrchk(cudaMemcpyToArray(cu_2darray, 0, 0, array, size, cudaMemcpyHostToDevice));
+	bindEnvmap(cu_2darray, channelDesc);
 
 
 	// CUDA part
@@ -188,14 +188,13 @@ void RaytracerApplication::update( real_t delta_time )
 	Vector3 v = dir + up * -dot(up, dir);
 	Quaternion q = FromToRotation(look, v);
 	Quaternion ret = FromToRotation(v, dir) * q;
-	pos = Vector3(0, 20, 0);
+	pos = Vector3(0, 10, 0);
 	ret = Quaternion(-0.707, 0.707, 0, 0);
 	pos.to_array(cscene.cam_position);
 	ret.to_array(cscene.cam_orientation);
 	for (int i = 0; i < SPHERES; i++) {
 		velocity_acc[i] = Vector3(0, 0, 0);
 		times[i] = 0;
-		printf("Vel %d: %f\n", i, length(balls[i].velocity));
 	}
 
 	// Collision between spheres
@@ -206,10 +205,6 @@ void RaytracerApplication::update( real_t delta_time )
 			if (length(dist) < 2) {
 				Vector3 vel2 = normalize(dist) * dot(normalize(dist), vel1);
 				Vector3 u2 = balls[j].velocity + vel2;
-				/*
-				balls[i].velocity = balls[i].velocity + balls[j].velocity - u2;
-				balls[j].velocity = u2;
-				*/
 				times[i] ++;
 				times[j] ++;
 				velocity_acc[i] += balls[i].velocity + balls[j].velocity - u2;
