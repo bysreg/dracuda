@@ -104,6 +104,13 @@ __device__ float3 do_material (int geom, float3 diffuse, float3 normal, float3 p
 {
 	float3 mate = diffuse;
 	float3 cue_color = make_float3(0.29, 0.27, 0.25);
+	if (geom < SOLIDS) {
+		mate = lerp(diffuse, cue_color, smoothstep(0.9, 0.91, abs(pos.y)));
+	} else {
+		mate = lerp(diffuse, cue_color, smoothstep(0.9, 0.91, abs(pos.y)) + smoothstep(0.55, 0.56, abs(pos.z)));
+	}
+
+	/*
 	// Cue
 	if( geom == 3) {
 		mate = make_float3(0.30,0.25,0.20)*1.25; }
@@ -140,6 +147,7 @@ __device__ float3 do_material (int geom, float3 diffuse, float3 normal, float3 p
 		int w = y * cuScene.width + x;
 		//mate *= 0.78 + 0.22 * curand_uniform(cuScene.curand + w);
 	}
+	*/
 	return mate;
 }
 
