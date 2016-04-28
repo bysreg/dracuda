@@ -6,12 +6,9 @@
 #include <cuda_runtime.h>
 #include <cuda.h>
 
-struct cudaScene
+struct CudaScene
 {
-	// Geometry
-	int N;
-	float *position; // float3 * N
-	float *rotation; // float4 * N
+	// Sphere position & orientation
 	float *data;
 
 	// Camera
@@ -21,9 +18,6 @@ struct cudaScene
 	float aspect;
 	float near_clip;
 	float far_clip;
-
-	int width;
-	int height;
 };
 
 #endif

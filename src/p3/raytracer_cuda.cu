@@ -29,7 +29,7 @@ inline __host__ __device__ float4 quaternionConjugate(float4 q)
 	return make_float4(-q.x, -q.y, -q.z, q.w);
 }
 
-__constant__ cudaScene cuScene;
+__constant__ CudaScene cuScene;
 __constant__ PoolConstants cuConstants;
 
 texture <float4, cudaTextureType2D> envmap;
@@ -172,7 +172,7 @@ void cudaRayTraceKernel (unsigned char *img)
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
-	int w = y * cuScene.width + x;
+	int w = y * WIDTH + x;
 
 
 	__shared__ float mem[400];
@@ -203,8 +203,8 @@ void cudaRayTraceKernel (unsigned char *img)
 		float di = (x + (sampleX + curand_uniform(cuScene.curand + w)) / NSAMPLES) / cuScene.width * 2 - 1;
 		float dj = (y + (sampleY + curand_uniform(cuScene.curand + w)) / NSAMPLES) / cuScene.height * 2 - 1;
 		*/
-		float di = (x + (sampleX + 0.5) / NSAMPLES) / cuScene.width * 2 - 1;
-		float dj = (y + (sampleY + 0.5) / NSAMPLES) / cuScene.height * 2 - 1;
+		float di = (x + (sampleX + 0.5) / NSAMPLES) / WIDTH * 2 - 1;
+		float dj = (y + (sampleY + 0.5) / NSAMPLES) / HEIGHT * 2 - 1;
 		float3 ray_d = normalize(dir + dist * (dj * cU + di * AR * cR));
 		float3 ray_e = *((float3 *) cuScene.cam_position);
 
@@ -338,14 +338,14 @@ void cudaInitialize()
 	cudaDeviceSynchronize();
 }
 
-void cudaRayTrace(cudaScene *scene, unsigned char *img)
+void cudaRayTrace(CudaScene *scene, unsigned char *img)
 {
 	printf("CudaRayTrace\n");
 	printf("%p\n", scene);
-	gpuErrchk(cudaMemcpyToSymbol(cuScene, scene, sizeof(cudaScene)));
+	gpuErrchk(cudaMemcpyToSymbol(cuScene, scene, sizeof(CudaScene)));
 
 	dim3 dimBlock(16, 16);
-	dim3 dimGrid(scene->width / 16, scene->height / 16);
+	dim3 dimGrid(WIDTH / 16, HEIGHT / 16);
 
 	double startTime = CycleTimer::currentSeconds();
 	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(img);

@@ -15,7 +15,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 	}
 }
 
-extern void cudaRayTrace(cudaScene *scene, unsigned char *img);
+extern void cudaRayTrace(CudaScene *scene, unsigned char *img);
 extern void cudaInitialize();
 
 void bindEnvmap (cudaArray *array, cudaChannelFormatDesc &channelDesc);

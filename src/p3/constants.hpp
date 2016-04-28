@@ -6,6 +6,9 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
+#define WIDTH 768
+#define HEIGHT 576
+
 #define PLANES 1
 #define SPHERES 4
 #define SOLIDS 2

@@ -6,7 +6,7 @@ else()
 	list(APPEND CUDA_NVCC_FLAGS "-std=c++11;")
 endif()
 
-CUDA_ADD_EXECUTABLE(p3 application.cpp camera_roam.cpp imageio.cpp main.cpp raytracer_cuda.cu master.cpp master.hpp slave.hpp slave.cpp constants.cpp)
+CUDA_ADD_EXECUTABLE(p3 application.cpp camera_roam.cpp PoolScene.cpp imageio.cpp main.cpp raytracer_cuda.cu master.cpp master.hpp slave.hpp slave.cpp constants.cpp)
 
 target_link_libraries(p3 math ${SDL_LIBRARY}
                       ${PNG_LIBRARIES} ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES}
