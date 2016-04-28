@@ -11,11 +11,6 @@
 #include "math/vector.hpp"
 #include "math/quaternion.hpp"
 
-namespace _462 {
-
-/**
- * Stores position data of the camera.
- */
 class Camera
 {
 public:
@@ -72,8 +67,6 @@ public:
     // The far clipping plane.
     real_t far_clip;
 };
-
-} /* _462 */
 
 #endif /* _462_MATH_CAMERA_HPP_ */
 

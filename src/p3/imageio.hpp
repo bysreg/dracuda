@@ -29,8 +29,6 @@
 
 #include <cstdlib>
 
-namespace _462 {
-
 // Sets tbe width and height to the appropriate values and mallocs
 // a char *buffer loading up the values in row-major, RGBA format.
 // The memory associated with the buffer can be deallocated with free().
@@ -50,6 +48,5 @@ bool imageio_save_screenshot( const char* filename, int width, int height );
 // puts a default filename in name, up to len characters
 void imageio_gen_name( char* filename, size_t len );
 
-} /* _462 */
 
 #endif /* _462_APPLICATION_IMAGEIO_HPP_ */

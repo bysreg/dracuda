@@ -27,8 +27,6 @@ using namespace std;
 unsigned char *cimg;
 
 
-namespace _462 {
-
 Vector3 ball_initial_positions[SPHERES] = {
 	Vector3(1.0, 1.0, 1.0),
 	Vector3(-4.0, 1.0, 0.0),
@@ -55,14 +53,8 @@ Ball balls[SPHERES];
 static const size_t NUM_GL_LIGHTS = 8;
 struct Options
 {
-    bool open_window;
-    const char* input_filename;
-    const char* output_filename;
-    int width, height;
-    int num_samples;
 	bool master = false;
 	bool slave = false;
-
 	std::string host; // host to connect from slave
 };
 
@@ -80,7 +72,7 @@ public:
 
     virtual bool initialize();
     virtual void destroy();
-    virtual void update( real_t );
+    virtual void update( float );
     virtual void render();
     virtual void handle_event( const SDL_Event& event );
 	float time = 0;
@@ -172,7 +164,7 @@ Quaternion FromToRotation(Vector3 u, Vector3 v)
 Vector3 velocity_acc[SPHERES];
 int times[SPHERES];
 
-void RaytracerApplication::update( real_t delta_time )
+void RaytracerApplication::update( float delta_time )
 {
 	time += delta_time;
 	// Camera
@@ -328,54 +320,21 @@ void RaytracerApplication::do_gpu_raytracing()
 	gpuErrchk(cudaMemcpy(buffer, cimg, 4 * dwidth * dheight, cudaMemcpyDeviceToHost));
 }
 
-
-}
-
-using namespace _462;
-
 static bool parse_args( Options* opt, int argc, char* argv[] )
 {
-    opt->input_filename = argv[1];
-    opt->output_filename = NULL;
-    opt->open_window = true;
-    opt->width = DEFAULT_WIDTH;
-    opt->height = DEFAULT_HEIGHT;
-    opt->num_samples = 1;
     for (int i = 2; i < argc; i++)
     {
-
     	if(strcmp(argv[i] + 1, "master") == 0) {    		
     		opt->master = true;
     		continue;
     	}
-
     	if(strcmp(argv[i] + 1, "slave") == 0) {
     		opt->slave = true;
     		opt->host = argv[i + 1]; // we assume the next parameter is the master's host for the slave to connect to
     		i++;
     		continue;
     	}
-
-        switch (argv[i][1])
-        {
-        case 'd':
-            if (i >= argc - 2) return false;
-            opt->width = atoi(argv[++i]);
-            opt->height = atoi(argv[++i]);
-            // check for valid width/height
-            if ( opt->width < 1 || opt->height < 1 )
-            {
-                std::cout << "Invalid window dimensions\n";
-                return false;
-            }
-            break;
-        case 'n':
-            if (i < argc - 1)
-                opt->num_samples = atoi(argv[++i]);
-            break;
-        }
     }
-
     return true;
 }
 
@@ -398,7 +357,7 @@ int main( int argc, char* argv[] )
 		Slave::start(opt.host);
 	}	
 
-	real_t fps = 20.0;
+	float fps = 20.0;
 	const char* title = "15462 Project 3 - Raytracer";
 	// start a new application
 	ret = Application::start_application(&app,

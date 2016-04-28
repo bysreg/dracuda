@@ -7,9 +7,5 @@
 
 #include "math/vector.hpp"
 
-namespace _462 {
-
 void anotherSymbolForTheLinker();
-
-} /* _462 */
 

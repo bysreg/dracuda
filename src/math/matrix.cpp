@@ -11,8 +11,6 @@
 
 #include <cstring>
 
-namespace _462 {
-
 Matrix3::Matrix3( real_t (&r)[SIZE] )
 {
     memcpy( m, r, sizeof r );
@@ -391,6 +389,3 @@ Matrix3 column_matrix3(Vector3 a,Vector3 b,Vector3 c){
 Matrix3 row_matrix3(Vector3 a,Vector3 b,Vector3 c){
     return Matrix3(a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z);
 }
-
-} /* _462 */
-

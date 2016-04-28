@@ -7,8 +7,6 @@
 
 #include "math/camera.hpp"
 
-namespace _462 {
-
 Camera::Camera()
     : position( Vector3::Zero() ),
       orientation( Quaternion::Identity() ),
@@ -83,5 +81,3 @@ void Camera::rotate( const Vector3& axis, real_t radians )
 {
     orientation = normalize( Quaternion( axis, radians ) * orientation );
 }
-
-} /* _462 */

@@ -9,8 +9,6 @@
 #include <random>
 #include <omp.h>
 #include "math/math.hpp"
-namespace _462{
-
 
 /**
  * Generate a uniform random real_t on the interval [0, 1)
@@ -26,5 +24,3 @@ real_t random_gaussian();
      * Generate a uniformly random integer between 0 (incl) and n (excl)
      */
 int random_int(int n);
-
-}; // _462

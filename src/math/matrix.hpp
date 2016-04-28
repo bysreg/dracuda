@@ -13,8 +13,6 @@
 #include "math/vector.hpp"
 #include <cassert>
 
-namespace _462 {
-
 /*
 This file defines 2 matrix classes: 3x3 and 4x4.
 Each comes with several operators and functions.
@@ -311,8 +309,6 @@ Matrix3 column_matrix3(Vector3 a,Vector3 b,Vector3 c);
 std::ostream& operator<<( std::ostream& os, const Matrix3& rhs );
 std::ostream& operator<<( std::ostream& os, const Matrix4& rhs );
 Matrix3 row_matrix3(Vector3 a,Vector3 b,Vector3 c);
-
-} /* _462 */
 
 #endif /* _462_MATH_MATRIX_HPP_ */
 

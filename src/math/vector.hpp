@@ -14,8 +14,6 @@
 #include <cmath>
 #include <iostream>
 
-namespace _462 {
-
 /*
 This file defines 3 different vector classes: 2D, 3D, and 4D.
 Each class overrides most sensible operators and have functions
@@ -788,7 +786,6 @@ static std::ostream& operator<<( std::ostream& os, const Vector4& v )
 {
     return os << '(' << v.x << ',' << v.y << ',' << v.z << ',' << v.w << ')';
 }
-} /* _462 */
 
 #endif /* _462_MATH_VECTOR_HPP_ */
 

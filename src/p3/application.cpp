@@ -13,12 +13,10 @@
 #include <cstdlib>
 #include <iostream>
 
-namespace _462 {
-
 struct LoopData
 {
     Application* app;
-    real_t fps;
+    float fps;
     // so it will behave correctly if used for multi-threaded applications
     volatile bool* running;
 };
@@ -139,7 +137,7 @@ static void loop_update_func( LoopData* data, bool is_skip )
 /**
  * Works with any update function.
  */
-static void run_main_loop( void (*update_fn)( LoopData*, bool ), LoopData* data, real_t ups )
+static void run_main_loop( void (*update_fn)( LoopData*, bool ), LoopData* data, float ups )
 {
     assert( data->running && ups > 0 );
 
@@ -179,8 +177,8 @@ static void run_main_loop( void (*update_fn)( LoopData*, bool ), LoopData* data,
         if ( frame_rate_counter == FRAME_RATE_PRINT_TIME ) {
             int curr_time = SDL_GetTicks();
             printf( "frame rate: %f, avg frame time: %f\n",
-                FRAME_RATE_PRINT_TIME * 1000 / real_t(curr_time - frame_rate_counter_start),
-                real_t(total_frame_time) / FRAME_RATE_PRINT_TIME
+                FRAME_RATE_PRINT_TIME * 1000 / float(curr_time - frame_rate_counter_start),
+                float(total_frame_time) / FRAME_RATE_PRINT_TIME
             );
             frame_rate_counter_start = curr_time;
             frame_rate_counter = 0;
@@ -218,7 +216,7 @@ static void run_main_loop( void (*update_fn)( LoopData*, bool ), LoopData* data,
     }
 }
 
-int Application::start_application( Application* app, int width, int height, real_t fps, const char* title )
+int Application::start_application( Application* app, int width, int height, float fps, const char* title )
 {
     LoopData ldata;
 
@@ -257,6 +255,4 @@ int Application::start_application( Application* app, int width, int height, rea
     std::cerr << "Failed to start applcation, aborting.\n";
     return -1;
 }
-
-} /* _462 */
 

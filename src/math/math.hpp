@@ -12,9 +12,6 @@
 #include <algorithm>
 #include <cmath>
 
-namespace _462 {
-
-
 /* Comment this out to enable double precision arithmetic.
  * The speed and accuracy differences between single and double
  * precision are negligible, but space usage is drastically different.
@@ -47,8 +44,6 @@ inline T clamp( T val, T min, T max )
     return std::min( max, std::max( min, (T)pow((double)val,GAMMA) ) );
 }
 
-
-} /* _462 */
 
 void theLinkerWantsSymbolsSoNowItHasOne();
 

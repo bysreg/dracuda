@@ -32,10 +32,6 @@
 #include <png.h>
 #include <cassert>
 
-namespace _462 {
-
-// ***** generic internal functions ***** //
-
 // Call this function if there was an error.
 static unsigned char* _load_img_error(int *width, int *height)
 {
@@ -262,6 +258,3 @@ void imageio_gen_name( char* filename, size_t len )
     if ( strlen( filename ) + SS_SUFFIX_LEN < len )
         strcat( filename, SS_SUFFIX );
 }
-
-} /* _462 */
-

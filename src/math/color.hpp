@@ -12,8 +12,6 @@
 #include <iostream>
 #include <cassert>
 
-namespace _462 {
-
 /**
  * An RGB color/light intensity.
  */
@@ -171,8 +169,6 @@ Color3 clamp( const Color3& c, real_t min, real_t max );
  * Outputs a color text formatted as "(r,g,b)".
  */
 std::ostream& operator<<( std::ostream& os, const Color3& rhs );
-
-} /* _462 */
 
 #endif /* _462_MATH_COLOR_HPP_ */
 

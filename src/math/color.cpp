@@ -7,8 +7,6 @@
 
 #include "math/color.hpp"
 
-namespace _462 {
-
 Color3::Color3( const unsigned char* arr )
 {
     static const real_t inv = 1.0 / 255.0;
@@ -61,6 +59,4 @@ std::ostream& operator<<( std::ostream& os, const Color3& c )
 {
     return os << '(' << c.r << ',' << c.g << ',' << c.b << ')';
 }
-
-} /* _462 */
 

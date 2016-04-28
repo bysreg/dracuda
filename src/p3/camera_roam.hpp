@@ -11,8 +11,6 @@
 #include "application.hpp"
 #include "math/camera.hpp"
 
-namespace _462 {
-
 class CameraRoamControl
 {
 public:
@@ -20,7 +18,7 @@ public:
     CameraRoamControl();
     ~CameraRoamControl();
 
-    void update( real_t dt );
+    void update( float dt );
     void handle_event( const Application* app, const SDL_Event& event );
 
     // the camera of this control
@@ -39,7 +37,4 @@ private:
     Rotation rotation;
 };
 
-} /* _462 */
-
 #endif /* _462_APPLICATION_CAMERAROAM_HPP_ */
-

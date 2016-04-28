@@ -11,18 +11,13 @@
 #include "math/math.hpp"
 #include <SDL_events.h>
 
-namespace _462 {
-
-/**
- * A windowed application.
- */
 class Application
 {
 public:
 
     static int start_application(
         Application* app,
-        int width, int height, real_t fps,
+        int width, int height, float fps,
         const char* title );
 
     Application();
@@ -46,7 +41,7 @@ public:
      * Invoked on the update thread.
      * @param delta_time The length of the time step in seconds.
      */
-    virtual void update( real_t delta_time ) = 0;
+    virtual void update( float delta_time ) = 0;
 
     /**
      * Renders the application for the current frame.
@@ -84,7 +79,4 @@ private:
     Application& operator=( const Application& );
 };
 
-} /* _462 */
-
 #endif /* _462_APPLICATION_APPLICATION_HPP_ */
-

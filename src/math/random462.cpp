@@ -11,9 +11,6 @@
 #include <omp.h>
 #include "math/math.hpp"
 #include "limits.h"
-namespace _462{
-
-
 //initializes the (thread-local) random number generator
 std::default_random_engine *init_rand(){
     std::default_random_engine *ret;
@@ -55,5 +52,3 @@ real_t random_gaussian()
     return dist(*generator);
 }
 
-
-}; // _462

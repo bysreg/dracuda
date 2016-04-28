@@ -10,8 +10,6 @@
 
 #include "math/matrix.hpp"
 
-namespace _462 {
-
 static void make_unit( Quaternion& q )
 {
     real_t maginv = 1.0 / sqrt( norm( q ) );
@@ -182,6 +180,4 @@ std::ostream& operator <<( std::ostream& o, const Quaternion& q )
     o << "Quaternion(" << q.w << ", " << q.x << ", " << q.y << ", " << q.z << ")";
     return o;
 }
-
-} /* _462 */
 

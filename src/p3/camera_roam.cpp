@@ -9,11 +9,9 @@
 
 #include "camera_roam.hpp"
 
-namespace _462 {
-
-static const real_t DirectionTable[] = { 0.0, 1.0, -1.0 };
-static const real_t TranslationSpeed = 2.0;
-static const real_t RotationSpeed = 0.02;
+static const float DirectionTable[] = { 0.0, 1.0, -1.0 };
+static const float TranslationSpeed = 2.0;
+static const float RotationSpeed = 0.02;
 
 CameraRoamControl::CameraRoamControl()
 {
@@ -114,17 +112,15 @@ void CameraRoamControl::handle_event( const Application* app, const SDL_Event& e
     }
 }
 
-void CameraRoamControl::update( real_t dt )
+void CameraRoamControl::update( float dt )
 {
     // update the position based on keys
     // no need to update based on mouse, that's done in the event handling
-    real_t dist = TranslationSpeed * dt;
+    float dist = TranslationSpeed * dt;
     Vector3 displacement(
         DirectionTable[direction[0]],
         DirectionTable[direction[1]],
         DirectionTable[direction[2]]
     );
     camera.translate( displacement * dist );
-}
-
 }

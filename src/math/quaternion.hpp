@@ -12,8 +12,6 @@
 #include "math/math.hpp"
 #include "math/vector.hpp"
 
-namespace _462 {
-
 class Matrix3;
 class Matrix4;
 
@@ -154,8 +152,6 @@ Quaternion normalize( const Quaternion& q );
 Quaternion conjugate( const Quaternion& q );
 
 std::ostream& operator <<( std::ostream& o, const Quaternion& q );
-
-} /* _462 */
 
 #endif /* _462_MATH_QUATERNION_HPP_ */
 
