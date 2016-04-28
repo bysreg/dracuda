@@ -1,14 +1,7 @@
-#include "application/application.hpp"
-#include "application/camera_roam.hpp"
-#include "application/imageio.hpp"
-#include "application/scene_loader.hpp"
-#include "application/opengl.hpp"
-#include "scene/scene.hpp"
-#include "scene/sphere.hpp"
-#include "scene/triangle.hpp"
-#include "p3/raytracer.hpp"
+#include "application.hpp"
+#include "camera_roam.hpp"
 #include <typeinfo>
-#include "scene/model.hpp"
+#include "opengl.hpp"
 #include "cudaScene.hpp"
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -33,7 +26,15 @@ using namespace std;
 
 unsigned char *cimg;
 
+
 namespace _462 {
+
+Vector3 ball_initial_positions[SPHERES] = {
+	Vector3(1.0, 1.0, 1.0),
+	Vector3(-4.0, 1.0, 0.0),
+	Vector3(0.0, 1.0, 3.0),
+	Vector3(5.0, 1.0, -2.0)
+};
 
 #define DEFAULT_WIDTH 800
 #define DEFAULT_HEIGHT 600
@@ -87,7 +88,6 @@ public:
     // flips raytracing, does any necessary initialization
 	void do_gpu_raytracing();
 
-    Scene scene;
     Options options;
     CameraRoamControl camera_control;
     // the image buffer for raytracing
@@ -100,7 +100,6 @@ public:
 bool RaytracerApplication::initialize()
 {
     // copy camera into camera control so it can be moved via mouse
-    camera_control.camera = scene.camera;
     bool load_gl = options.open_window;
 	gpuErrchk(cudaMalloc((void **)&cscene.data, sizeof(float) * 7 * SPHERES));
 
@@ -111,23 +110,20 @@ bool RaytracerApplication::initialize()
 	
 
 	for (size_t i = 0; i < SPHERES; i++) {
-		Geometry *g = scene.get_geometries()[i];
-		balls[i].position = g->position;
-		balls[i].orientation = g->orientation;
+		balls[i].position = ball_initial_positions[i];
+		balls[i].orientation = Quaternion::Identity();
 	}
-	balls[2].velocity = Vector3(0.9, 0, -0.80);
 
-	scene.post_initialize();
+	balls[2].velocity = Vector3(0.9, 0, -0.80);
 
 	gpuErrchk(cudaMemcpy(cscene.data, cscene_host.data, sizeof(float) * 7 * SPHERES, cudaMemcpyHostToDevice));
 	
-	scene.camera.position.to_array(cscene.cam_position);
-	scene.camera.orientation.to_array(cscene.cam_orientation);
-	cscene.fov = scene.camera.fov;
+	Vector3(0, 0, 0).to_array(cscene.cam_position);
+	Quaternion::Identity().to_array(cscene.cam_orientation);
+	cscene.fov = 0.785;
 	cscene.aspect = (dwidth + 0.0) / (dheight + 0.0);
-	cscene.near_clip = scene.camera.near_clip;
-	cscene.far_clip = scene.camera.far_clip;
-
+	cscene.near_clip = 0.01;
+	cscene.far_clip = 200.0;
 
 	int width, height;
 	float endian;
@@ -296,7 +292,6 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
     if ( !gpu_raytracing ) {
         camera_control.handle_event( this, event );
     }
-	scene.handle_event(event);
 
     switch ( event.type )
     {
@@ -340,11 +335,6 @@ using namespace _462;
 
 static bool parse_args( Options* opt, int argc, char* argv[] )
 {
-    if ( argc < 2 ) {
-		std::cout << "More arguments" << std::endl;
-        return false;
-    }
-
     opt->input_filename = argv[1];
     opt->output_filename = NULL;
     opt->open_window = true;
@@ -400,19 +390,6 @@ int main( int argc, char* argv[] )
     }
 
     RaytracerApplication app( opt );
-
-    // load the given scene
-    if ( !load_scene( &app.scene, opt.input_filename ) ) {
-        std::cout << "Error loading scene "
-          << opt.input_filename << ". Aborting.\n";
-        return 1;
-    }
-
-	Scene *scene = &app.scene;
-	cout << "Geometries: " << scene->num_geometries() << endl;
-	cout << "Meshes: " << scene->num_meshes() << endl;
-	cout << "Materials: " << scene->num_materials() << endl;
-
 	cout << "master:slave => " << opt.master << ":" << opt.slave << endl;
 
 	if(opt.master) {

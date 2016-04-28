@@ -7,7 +7,7 @@
  * @description   this file implements a free roam camera
  */
 
-#include "application/camera_roam.hpp"
+#include "camera_roam.hpp"
 
 namespace _462 {
 

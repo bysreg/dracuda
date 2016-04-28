@@ -16,8 +16,6 @@ include_directories(
     ${Boost_INCLUDE_DIRS}
 )
 
-add_subdirectory(application)
+#add_subdirectory(application)
 add_subdirectory(math)
 add_subdirectory(p3)
-add_subdirectory(scene)
-add_subdirectory(tinyxml)

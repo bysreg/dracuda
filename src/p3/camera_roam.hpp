@@ -8,7 +8,7 @@
 #ifndef _462_APPLICATION_CAMERAROAM_HPP_
 #define _462_APPLICATION_CAMERAROAM_HPP_
 
-#include "application/application.hpp"
+#include "application.hpp"
 #include "math/camera.hpp"
 
 namespace _462 {

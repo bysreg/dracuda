@@ -24,10 +24,10 @@
  *            this source code.
  */
 
-#include "application/imageio.hpp"
+#include "imageio.hpp"
 
-#include "application/opengl.hpp"
-#include "application/application.hpp"
+#include "opengl.hpp"
+#include "application.hpp"
 #include <iostream>
 #include <png.h>
 #include <cassert>

@@ -5,9 +5,9 @@
  * @author Eric Butler (edbutler)
  */
 
-#include "application/application.hpp"
-#include "application/opengl.hpp"
-#include "application/imageio.hpp"
+#include "application.hpp"
+#include "imageio.hpp"
+#include "opengl.hpp"
 #include <SDL.h>
 #include <cassert>
 #include <cstdlib>
