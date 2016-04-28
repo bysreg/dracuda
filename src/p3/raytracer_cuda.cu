@@ -164,7 +164,7 @@ void curandSetupKernel()
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
-	int w = y * 800 + x;
+	int w = y * WIDTH + x;
 	curand_init(1578, w, 0, cuConstants.curand + w);
 }
 __global__
@@ -330,10 +330,10 @@ void cudaRayTraceKernel (unsigned char *img)
 void cudaInitialize()
 {
 	initialize_constants();
-	gpuErrchk(cudaMalloc((void **)&poolConstants.curand, sizeof(curandState) * 800 * 600));
+	gpuErrchk(cudaMalloc((void **)&poolConstants.curand, sizeof(curandState) * WIDTH * HEIGHT));
 	gpuErrchk(cudaMemcpyToSymbol(cuConstants, &poolConstants, sizeof(PoolConstants)));
 	dim3 dimBlock(16, 16);
-	dim3 dimGrid(800 / 16, 600 / 16);
+	dim3 dimGrid(WIDTH / 16, HEIGHT / 16);
 	curandSetupKernel<<<dimGrid, dimBlock>>>();
 	cudaDeviceSynchronize();
 }

@@ -28,7 +28,6 @@ unsigned char *cimg;
 
 PoolScene poolScene;
 CudaScene cudaScene;
-CudaScene cudaSceneHost;
 
 #define KEY_RAYTRACE_GPU SDLK_g
 
