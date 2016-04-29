@@ -10,6 +10,8 @@
 
 #include "message.hpp"
 
+class Master;
+
 class Connection
 : public std::enable_shared_from_this<Connection>
 {
@@ -18,7 +20,7 @@ private:
 	typedef std::deque<MessagePtr> MessageQueue;
 
 public:
-	Connection(tcp::socket socket);	
+	Connection(tcp::socket socket, Master& master);	
 
 	void start();
 
@@ -44,12 +46,15 @@ private:
 	tcp::socket socket;
 	Message read_msg;
 	MessageQueue write_msgs;
+	Master& master;
 };
 
 typedef std::shared_ptr<Connection> ConnectionPtr;
 
 class Master
 {
+
+	friend class Connection;
 
 private:
 	typedef boost::asio::ip::tcp tcp;
@@ -71,6 +76,10 @@ public:
 	void send_all(const std::string& str);
 	void send_all(MessagePtr msg);
 
+	// callbacks
+	void set_on_message_received(std::function<void(const Message&)> const& cb);
+	void set_on_connection_started(std::function<void(Connection&)> const& cb);
+
 private:
 
 	Master(boost::asio::io_service& io_service);
@@ -78,6 +87,10 @@ private:
 	// prevent from copying
 	Master(Master const& other) = delete;
 	void operator=(Master const& other) = delete;
+
+	// callbacks
+	std::function<void(const Message&)> on_message_received;
+	std::function<void(Connection&)> on_connection_started;
 
 	void do_accept();
 

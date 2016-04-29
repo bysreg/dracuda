@@ -14,7 +14,7 @@ private:
 public:
 
 	// create a new thread to run slave tcp 
-	static void start(const std::string& host);
+	static Slave& start(const std::string& host);
 
 	// stop slave tcp 
 	static void stop();
@@ -37,11 +37,17 @@ public:
 	void send(const std::string& str);
 	void send(Message* message);
 
+	// callbacks
+	void set_on_message_received(std::function<void(const Message&)> const& cb);
+
 private:
 	boost::asio::io_service& io_service;
 	tcp::socket socket;
 	Message read_msg;
 	MessageQueue write_msgs;
+
+	// callbacks
+	std::function<void(const Message&)> on_message_received;
 
 	void run(boost::asio::ip::tcp::resolver::iterator endpoint_iterator);
 	void do_connect(tcp::resolver::iterator endpoint_iterator);

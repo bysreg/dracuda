@@ -4,31 +4,20 @@
 static const int read_msg_max_length = 1440000; 
 static const int write_msg_max_length = 1000;
 
-Connection::Connection(boost::asio::ip::tcp::socket socket_)
-	: socket(std::move(socket_)), read_msg(read_msg_max_length)
+Connection::Connection(boost::asio::ip::tcp::socket socket_, 
+	Master& master_)
+	: socket(std::move(socket_)), read_msg(read_msg_max_length), 
+	  master(master_)
 {}
-
-struct Test {
-	char a;
-	char b;
-	char c;
-	char d;
-	Test() {
-		a = 'h';
-		b = 'i';
-		c = 'l';
-		d = 'm';
-	}
-};
 
 void Connection::start()
 {
 	std::cout<<"a connection started"<<std::endl;
 
-	Test test;
-	send(test);
-
-	//send("hello world");
+	if(master.on_connection_started) 
+	{
+		master.on_connection_started(*this);
+	}
 
 	do_read_header();
 }
@@ -65,10 +54,6 @@ void Connection::do_write()
 		{
 			if (!ec)
 			{
-				//delete the recent sent message
-				// Message* sent = write_msgs.front();
-				// delete sent;
-
 				write_msgs.pop_front();
 				if (!write_msgs.empty())
 				{
@@ -112,9 +97,10 @@ void Connection::do_read_body()
 		{
 			if (!ec)
 			{
-				std::cout.write(read_msg.body(), read_msg.body_length());
-				std::cout << "\n";
+				// std::cout.write(read_msg.body(), read_msg.body_length());
+				// std::cout << "\n";
 
+				master.on_message_received(read_msg);
 				do_read_header();
 			}
 			else
@@ -152,7 +138,7 @@ void Master::do_accept()
 		{
 			if (!ec)
 			{
-				auto conn_ptr = std::make_shared<Connection>(std::move(socket));
+				auto conn_ptr = std::make_shared<Connection>(std::move(socket), *this);
 				this->connections.insert(conn_ptr);
 
 				conn_ptr->start();
@@ -179,11 +165,46 @@ void Master::send_all(MessagePtr msg)
 	}
 }
 
+void Master::set_on_message_received(std::function<void(const Message& message)> const& cb)
+{
+	on_message_received = cb;
+}
+
+void Master::set_on_connection_started(std::function<void(Connection& connection)> const& cb)
+{
+	on_connection_started = cb;
+}
+
+struct Test {
+	char a;
+	char b;
+	char c;
+	char d;
+	Test() {
+		a = 'h';
+		b = 'i';
+		c = 'l';
+		d = 'm';
+	}
+};
+
 // int main(int argc, char* argv[])
 // {
 // 	try
 // 	{
 // 		Master& master = Master::start();  		
+// 		master.set_on_message_received(
+// 			[&master](const Message& msg) {
+// 				std::cout<<"receive : ";
+// 				std::cout.write(msg.body(), msg.body_length());
+// 				std::cout << "\n";
+// 			}
+// 		);
+// 		master.set_on_connection_started(
+// 			[&master](Connection& connection) {
+// 				connection.send("hello world");
+// 			}
+// 		);
 
 // 		while(true) 
 // 		{

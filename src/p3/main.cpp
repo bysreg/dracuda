@@ -216,6 +216,30 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
 
 using namespace std;
 
+void on_master_receive_message(const Message& message)
+{
+	// we receive the image from slave
+	// for now just print it
+
+	std::cout<<"receive : ";
+	std::cout.write(message.body(), message.body_length());
+	std::cout << "\n";
+}
+
+void on_slave_receive_message(const Message& message) 
+{
+	PoolScene poolSceneCopy;
+	std::memcpy(&poolSceneCopy, message.body(), message.body_length());
+	std::cout<<"position : " << poolSceneCopy.balls[0].position << std::endl;
+	std::cout<<"orientation : " << poolSceneCopy.balls[0].orientation << std::endl;
+	std::cout<<"acceleration : " << poolSceneCopy.balls[0].acceleration << std::endl;
+	std::cout<<"velocity : " << poolSceneCopy.balls[0].velocity << std::endl;
+
+	// render ... and send the image to master
+	// for now, just send a test string
+	slave->send("test slave's response");
+}
+
 int main( int argc, char* argv[] )
 {
     Options opt;
@@ -230,8 +254,10 @@ int main( int argc, char* argv[] )
 
 	if(opt.master) {
 		master = &Master::start();
+		master->set_on_message_received(on_master_receive_message);
 	}else if(opt.slave) {
-		Slave::start(opt.host);
+		slave = &Slave::start(opt.host);
+		slave->set_on_message_received(on_slave_receive_message);
 	}	
 
 	float fps = 20.0;
