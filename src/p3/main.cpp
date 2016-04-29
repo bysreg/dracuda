@@ -235,9 +235,11 @@ void on_slave_receive_message(const Message& message)
 	std::cout<<"acceleration : " << poolSceneCopy.balls[0].acceleration << std::endl;
 	std::cout<<"velocity : " << poolSceneCopy.balls[0].velocity << std::endl;
 
+	const unsigned char test_char_arr[4] = {'y', 'o', 'l', 'o'};
+
 	// render ... and send the image to master
-	// for now, just send a test string
-	slave->send("test slave's response");
+	// for now, just send a char array
+	slave->send(test_char_arr, 4);
 }
 
 int main( int argc, char* argv[] )

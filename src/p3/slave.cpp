@@ -97,6 +97,16 @@ void Slave::do_read_body()
 		});
 }
 
+void Slave::send(const unsigned char* chars, int size)
+{
+	Message* msg = new Message(size);
+
+	msg->set_body_length(size);
+	std::memcpy(msg->body(), chars, size);
+	msg->encode_header();
+	send(msg);
+}
+
 void Slave::send(const std::string& str)
 {
 	// std::cout<<"trying to send a string"<<std::endl;

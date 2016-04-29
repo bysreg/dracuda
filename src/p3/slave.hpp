@@ -19,7 +19,6 @@ public:
 	// stop slave tcp 
 	static void stop();
 
-
 	Slave(boost::asio::io_service& io_service, 
 		tcp::resolver::iterator endpoint_iterator);	
 
@@ -34,6 +33,7 @@ public:
 	}
 
 	// communications
+	void send(const unsigned char*, int size);
 	void send(const std::string& str);
 	void send(Message* message);
 
