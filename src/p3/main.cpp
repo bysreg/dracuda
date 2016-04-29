@@ -13,6 +13,7 @@
 
 #include "master.hpp"
 #include "slave.hpp"
+#include "base64.h"
 
 #include <SDL.h>
 
@@ -23,14 +24,17 @@
 
 using namespace std;
 
-float *host_data;
-unsigned char *cimg;
+unsigned char *cudaBuffer;
+unsigned char* buffer = 0;
 
 PoolScene poolScene;
 CudaScene cudaScene;
 
 Master* master;
 Slave* slave;
+
+void on_master_receive_message(const Message& message);
+void on_slave_receive_message(const Message& message);
 
 #define KEY_RAYTRACE_GPU SDLK_g
 
@@ -45,7 +49,7 @@ class RaytracerApplication : public Application
 {
 public:
     RaytracerApplication( const Options& opt )
-        : options( opt ), buffer( 0 ) {}
+        : options( opt ){}
 
     virtual ~RaytracerApplication() {
 		if (buffer)
@@ -64,7 +68,6 @@ public:
     Options options;
     CameraRoamControl camera_control;
 
-    unsigned char* buffer = 0;
 };
 
 bool RaytracerApplication::initialize()
@@ -76,12 +79,6 @@ bool RaytracerApplication::initialize()
 		buffer = new unsigned char [WIDTH * HEIGHT * 4];
 	}
 
-	gpuErrchk(cudaMalloc((void **)&cudaScene.data, sizeof(float) * 7 * SPHERES));
-
-	host_data = (float *)malloc(sizeof(float) * 7 * SPHERES);
-
-	gpuErrchk(cudaMemcpy(cudaScene.data, host_data, sizeof(float) * 7 * SPHERES, cudaMemcpyHostToDevice));
-	
 	cudaScene.fov = 0.785;
 	cudaScene.aspect = (WIDTH + 0.0) / (HEIGHT + 0.0);
 	cudaScene.near_clip = 0.01;
@@ -90,8 +87,8 @@ bool RaytracerApplication::initialize()
 	int width, height;
 	float endian;
 	FILE *file = fopen("images/stpeters_probe.pfm", "r");
-	char buffer[10];
-	fscanf(file, "%s\n", buffer);
+	char tmp[10];
+	fscanf(file, "%s\n", tmp);
 	fscanf(file, "%d %d\n", &width, &height);
 	fscanf(file, "%f\n", &endian);
 	int size = width * height * sizeof(float4) ;
@@ -104,6 +101,7 @@ bool RaytracerApplication::initialize()
 		array[4 * i + 1] = array[3 * i + 1];
 		array[4 * i + 0] = array[3 * i + 0];
 	}
+	fclose(file);
 
 	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat );
 	cudaArray *cu_2darray;
@@ -113,9 +111,17 @@ bool RaytracerApplication::initialize()
 	bindEnvmap(cu_2darray, channelDesc);
 
 	// CUDA part
-	gpuErrchk(cudaMalloc((void **)&cimg, 4 * HEIGHT * WIDTH));
+	gpuErrchk(cudaMalloc((void **)&cudaBuffer, 4 * HEIGHT * WIDTH));
 	cudaInitialize();
 	std::cout << "Cuda initialized" << std::endl;
+	if(options.master) {
+		master = &Master::start();
+		master->set_on_message_received(on_master_receive_message);
+	}else if(options.slave) {
+		slave = &Slave::start(options.host);
+		slave->set_on_message_received(on_slave_receive_message);
+	}	
+
     return true;
 }
 
@@ -133,17 +139,18 @@ Quaternion FromToRotation(Vector3 u, Vector3 v)
 
 void RaytracerApplication::update( float delta_time )
 {
-	time += delta_time;
-	poolScene.update(delta_time);
-	poolScene.toCudaScene(cudaScene);
-	poolScene.toDataBuffer(host_data);
-
-	if(options.master)
-		master->send_all(poolScene);
-
-	gpuErrchk(cudaMemcpy(cudaScene.data, host_data, sizeof(float) * 7 * SPHERES, cudaMemcpyHostToDevice));
-	cudaRayTrace(&cudaScene, cimg);
-	gpuErrchk(cudaMemcpy(buffer, cimg, 4 * WIDTH * HEIGHT, cudaMemcpyDeviceToHost));
+	if (options.master) {
+		time += delta_time;
+		poolScene.update(delta_time);
+		poolScene.toCudaScene(cudaScene);
+		master->send_all(cudaScene);
+	} else if (!options.slave) {
+		time += delta_time;
+		poolScene.update(delta_time);
+		poolScene.toCudaScene(cudaScene);
+		cudaRayTrace(&cudaScene, cudaBuffer);
+		gpuErrchk(cudaMemcpy(buffer, cudaBuffer, 4 * WIDTH * HEIGHT, cudaMemcpyDeviceToHost));
+	}
 }
 
 void RaytracerApplication::render()
@@ -162,8 +169,8 @@ void RaytracerApplication::render()
 	}
 	glColor4d( 1.0, 1.0, 1.0, 1.0 );
 	glRasterPos2f( -1.0f, -1.0f );
-	glDrawPixels( WIDTH, HEIGHT, GL_RGBA,
-		  GL_UNSIGNED_BYTE, &buffer[0] );
+	if (!options.slave)
+		glDrawPixels( WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, &buffer[0] );
 }
 
 void RaytracerApplication::handle_event( const SDL_Event& event )
@@ -221,25 +228,25 @@ void on_master_receive_message(const Message& message)
 	// we receive the image from slave
 	// for now just print it
 
+//	printf("BODY LENG %d\n", message.body_length());
+	std::memcpy(buffer, message.body(), message.body_length());
+	/*
 	std::cout<<"receive : ";
 	std::cout.write(message.body(), message.body_length());
 	std::cout << "\n";
+	*/
 }
 
 void on_slave_receive_message(const Message& message) 
 {
-	PoolScene poolSceneCopy;
-	std::memcpy(&poolSceneCopy, message.body(), message.body_length());
-	std::cout<<"position : " << poolSceneCopy.balls[0].position << std::endl;
-	std::cout<<"orientation : " << poolSceneCopy.balls[0].orientation << std::endl;
-	std::cout<<"acceleration : " << poolSceneCopy.balls[0].acceleration << std::endl;
-	std::cout<<"velocity : " << poolSceneCopy.balls[0].velocity << std::endl;
+	CudaScene cudaSceneCopy;
+	std::memcpy(&cudaSceneCopy, message.body(), message.body_length());
+	cudaRayTrace(&cudaSceneCopy, cudaBuffer);
+	gpuErrchk(cudaMemcpy(buffer, cudaBuffer, 4 * WIDTH * HEIGHT, cudaMemcpyDeviceToHost));
 
-	const unsigned char test_char_arr[4] = {'y', 'o', 'l', 'o'};
-
-	// render ... and send the image to master
-	// for now, just send a char array
-	slave->send(test_char_arr, 4);
+	//std::string encoded_str = base64_encode(buffer, 4 * WIDTH * HEIGHT);
+	slave->send(buffer, WIDTH * HEIGHT * 4);
+	//slave->send(encoded_str);
 }
 
 int main( int argc, char* argv[] )
@@ -254,15 +261,7 @@ int main( int argc, char* argv[] )
     RaytracerApplication app( opt );
 	cout << "master:slave => " << opt.master << ":" << opt.slave << endl;
 
-	if(opt.master) {
-		master = &Master::start();
-		master->set_on_message_received(on_master_receive_message);
-	}else if(opt.slave) {
-		slave = &Slave::start(opt.host);
-		slave->set_on_message_received(on_slave_receive_message);
-	}	
-
-	float fps = 20.0;
+	float fps = 1.0;
 	const char* title = "DRACUDA";
 
 	ret = Application::start_application(&app, WIDTH, HEIGHT, fps, title);

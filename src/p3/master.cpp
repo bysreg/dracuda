@@ -2,7 +2,7 @@
 #include "master.hpp"
 
 static const int read_msg_max_length = 1440000; 
-static const int write_msg_max_length = 1000;
+static const int write_msg_max_length = 1000000;
 
 Connection::Connection(boost::asio::ip::tcp::socket socket_, 
 	Master& master_)

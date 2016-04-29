@@ -7,7 +7,7 @@
 #include <boost/lexical_cast.hpp>
 
 static const int write_msg_max_length = 1440000;
-static const int read_msg_max_length = 1000;
+static const int read_msg_max_length = 100000;
 
 Slave::Slave(boost::asio::io_service& io_service, 
 	tcp::resolver::iterator endpoint_iterator)

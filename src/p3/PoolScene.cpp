@@ -38,6 +38,10 @@ void PoolScene::toCudaScene(CudaScene &scene)
 {
 	camera.position.to_array(scene.cam_position); 
 	camera.orientation.to_array(scene.cam_orientation);
+	for (int i = 0; i < SPHERES; i++) {
+		balls[i].position.to_array(scene.data + 4 * SPHERES + 3 * i);
+		balls[i].orientation.to_array(scene.data + 4 * i);
+	}
 }
 
 void PoolScene::update (float delta_time)

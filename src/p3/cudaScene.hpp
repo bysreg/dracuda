@@ -1,6 +1,7 @@
 #ifndef __CUDA_SCENE
 #define __CUDA_SCENE
 
+#include "constants.hpp"
 #include <curand.h>
 #include <curand_kernel.h>
 #include <cuda_runtime.h>
@@ -9,7 +10,7 @@
 struct CudaScene
 {
 	// Sphere position & orientation
-	float *data;
+	float data[SPHERES * 7];
 
 	// Camera
 	float cam_position[3];
