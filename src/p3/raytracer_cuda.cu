@@ -340,8 +340,8 @@ void cudaInitialize()
 
 void cudaRayTrace(CudaScene *scene, unsigned char *img)
 {
-	printf("CudaRayTrace\n");
-	printf("%p\n", scene);
+	//printf("CudaRayTrace\n");
+	//printf("%p\n", scene);
 	gpuErrchk(cudaMemcpyToSymbol(cuScene, scene, sizeof(CudaScene)));
 
 	dim3 dimBlock(16, 16);
@@ -350,7 +350,7 @@ void cudaRayTrace(CudaScene *scene, unsigned char *img)
 	double startTime = CycleTimer::currentSeconds();
 	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(img);
 	cudaDeviceSynchronize();
-	printf("CUDA rendering time: %lf\n", CycleTimer::currentSeconds() - startTime);
+	//printf("CUDA rendering time: %lf\n", CycleTimer::currentSeconds() - startTime);
 
 	cudaError_t error = cudaGetLastError();
 	if ( cudaSuccess != error )

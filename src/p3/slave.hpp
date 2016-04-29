@@ -9,7 +9,7 @@ class Slave
 {
 private:
 	typedef boost::asio::ip::tcp tcp;
-	typedef std::deque<Message> MessageQueue;
+	typedef std::deque<Message*> MessageQueue;
 
 public:
 
@@ -31,7 +31,7 @@ public:
 	// communications
 	void send_anjing();
 
-	void send(const Message& message);
+	void send(Message* message);
 
 private:
 	boost::asio::io_service& io_service;

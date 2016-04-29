@@ -4,81 +4,55 @@
 #include <string>
 #include <boost/asio.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <deque>
+#include <iostream>
 
 #include "message.hpp"
 
-class Connection 
-	: public boost::enable_shared_from_this<Connection> 
-{	
+class Connection
+: public std::enable_shared_from_this<Connection>
+{
 private:
 	typedef boost::asio::ip::tcp tcp;
+	typedef std::deque<Message*> MessageQueue;
 
 public:
-	typedef boost::shared_ptr<Connection> pointer;
-
-	static pointer create(boost::asio::io_service& io_service) {
-		return pointer(new Connection(io_service));
-	}
-
-	tcp::socket& socket()
-	{
-		return socket_;
-	}
-
-private:	
-	tcp::socket socket_;
-	char* data;
-
-	Connection(boost::asio::io_service& io_service)
-		: socket_(io_service) 
+	Connection(tcp::socket socket)
+	: socket_(std::move(socket))
 	{}
 
+	void start();
+private:
+
+	void send(const std::string& str);
+	void send(Message* msg);
+	void do_read_header();
+	void do_read_body();
+	void do_write();
+
+	tcp::socket socket_;
+	Message read_msg_;
+	MessageQueue write_msgs_;
 };
 
 class Master
 {
-
 private:
 	typedef boost::asio::ip::tcp tcp;
 
-public:	
+public:
+	Master(boost::asio::io_service& io_service)
+	: acceptor_(io_service, tcp::endpoint(tcp::v4(), 50000)),
+	socket_(io_service)
+	{
+		do_accept();
+	}
 
-	// FIXME : should be private
-	Master(boost::asio::io_service& io_service) 
-		: acceptor(io_service, tcp::endpoint(tcp::v4(), 1030)) // 1030 is the port number
-	{}	
-
-	// create a new thread to run the master tcp async server
 	static void start();
 
-	// stop master tcp async server
-	static void stop();
+private:
+	void do_accept();
 
-	static const char ACK = 1;
-
-private:		
-
-	tcp::acceptor acceptor;
-
-	void run();
-	void start_accept();
-	void handle_accept(Connection::pointer new_conn, 
-		const boost::system::error_code& error);
-	void send_complete(const boost::system::error_code& /*error*/,
-      size_t /*bytes_transferred*/);
-
-	// communications
-	void send_ack(Connection::pointer);
-	void send_helloworld(Connection::pointer);
-	
-	void send(Connection::pointer, char code);
-	void send(Connection::pointer, const std::string& s);
-	void send(Connection::pointer, const Message& msg);
-
-	static std::string make_daytime_string()
-	{
-	  using namespace std; // For time_t, time and ctime;
-	  time_t now = time(0);
-	  return ctime(&now);
-	}
+	tcp::acceptor acceptor_;
+	tcp::socket socket_;
 };

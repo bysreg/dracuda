@@ -1,102 +1,146 @@
 #include <boost/thread/thread.hpp>
-#include <iostream>
-
 #include "master.hpp"
-#include "message.hpp"
 
-using namespace std;
-
-void Master::start() 
+void Connection::start()
 {
-	using boost::asio::ip::tcp;
+	std::cout<<"a connection started"<<std::endl;
 
+	send("hello fucker");
+	do_read_header();
+}
+
+void Connection::send(const std::string& str)
+{
+	// std::cout<<"trying to send a string"<<std::endl;
+
+	Message* msg = new Message;
+
+	msg->set_body_length(str.length());
+	std::memcpy(msg->body(), str.c_str(), str.length());
+	msg->encode_header();
+	send(msg);
+}
+
+void Connection::send(Message* msg)
+{
+	bool write_in_progress = !write_msgs_.empty();
+	write_msgs_.push_back(msg);
+	if (!write_in_progress)
+	{
+		do_write();
+	}
+}
+
+void Connection::do_write()
+{
+	// std::cout<<"trying to call write"<<std::endl;
+
+	auto self(shared_from_this());
+	boost::asio::async_write(socket_,
+		boost::asio::buffer(write_msgs_.front()->data(),
+		write_msgs_.front()->length()),
+		[this, self](boost::system::error_code ec, std::size_t /*length*/)
+		{
+			if (!ec)
+			{
+				//delete the recent sent message
+				Message* sent = write_msgs_.front();
+				delete sent;
+
+				write_msgs_.pop_front();
+				if (!write_msgs_.empty())
+				{
+					do_write();
+				}
+			}
+			else
+			{
+					//something is wrong
+			}
+		});
+}
+
+void Connection::do_read_header()
+{
+	// std::cout<<"trying to call read header"<<std::endl;
+
+	auto self(shared_from_this());
+	boost::asio::async_read(socket_,
+		boost::asio::buffer(read_msg_.data(), Message::header_length),
+			[this, self](boost::system::error_code ec, std::size_t /*length*/)
+		{
+			if (!ec && read_msg_.decode_header())
+			{
+				do_read_body();
+			}
+			else
+			{
+					// something is wrong
+			}
+		});
+}
+
+void Connection::do_read_body()
+{
+	// std::cout<<"trying to call read body"<<std::endl;
+	auto self(shared_from_this());
+	boost::asio::async_read(socket_,
+		boost::asio::buffer(read_msg_.body(), read_msg_.body_length()),
+			[this, self](boost::system::error_code ec, std::size_t /*length*/)
+		{
+			if (!ec)
+			{
+				std::cout.write(read_msg_.body(), read_msg_.body_length());
+				std::cout << "\n";
+
+				do_read_header();
+			}
+			else
+			{
+					//something is wrong
+			}
+		});
+}
+
+void Master::start()
+{
 	static boost::asio::io_service io_service;
+
 	static Master master(io_service);
 
-	cout<<"starting master server..."<<endl;
+	std::cout<<"starting master..."<<std::endl;
 
-	boost::thread t(boost::bind(&Master::run, &master));
+	boost::thread t(boost::bind(&boost::asio::io_service::run,
+		&io_service));
 }
 
-void Master::stop() 
+void Master::do_accept()
 {
-	// FIXME: should stop all the running threads
+	acceptor_.async_accept(socket_,
+		[this](boost::system::error_code ec)
+		{
+			if (!ec)
+			{
+				std::make_shared<Connection>(std::move(socket_))->start();
+			}
+
+			do_accept();
+		});
 }
 
-void Master::run() 
-{
-	start_accept();
+// int main(int argc, char* argv[])
+// {
+// 	try
+// 	{
+// 		Master::start();  
 
-	acceptor.get_io_service().run();
-}
+// 		while(true) {};
 
-void Master::start_accept() 
-{
-	Connection::pointer new_conn = 
-		Connection::create(acceptor.get_io_service());
+// 	}
+// 	catch (std::exception& e)
+// 	{
+// 		std::cerr << "Exception: " << e.what() << "\n";
+// 	}
 
-	acceptor.async_accept(new_conn->socket(), 
-		boost::bind(&Master::handle_accept, this, new_conn,
-			boost::asio::placeholders::error));
-}
-
-void Master::handle_accept(Connection::pointer new_conn, 
-	const boost::system::error_code& error) 
-{
-	if(error) {
-		cerr << "error!! " << error << endl;		
-	}else{
-		// for now, always send ACK
-		//send_ack(new_conn);
-		send_helloworld(new_conn);
-	}
-
-	start_accept();
-}
-
-void Master::send_complete(const boost::system::error_code& /*error*/,
-	  size_t /*bytes_transferred*/)
-{	
-} 
-
-void Master::send_helloworld(Connection::pointer connection)
-{	
-	send(connection, "2helloworld!!\n");
-}
-
-void Master::send_ack(Connection::pointer connection)
-{
-	send(connection, static_cast<char>(0));	
-}
-
-void Master::send(Connection::pointer connection, char code)
-{
-	char buf[1];
-	buf[1] = code;
-	boost::asio::async_write(connection->socket(), 
-		boost::asio::buffer(buf), 
-		boost::bind(&Master::send_complete, 
-			this,
-			boost::asio::placeholders::error,
-			boost::asio::placeholders::bytes_transferred));
-}
-
-void Master::send(Connection::pointer connection, const string& str)
-{
-	Message msg;
-	msg.set_body_length(str.length());
-	std::memcpy(msg.body(), str.c_str(), str.length());
-	msg.encode_header();
-
-	send(connection, msg);	
-}
-
-void Master::send(Connection::pointer connection, const Message& msg)
-{
-	boost::asio::async_write(connection->socket(), 
-		boost::asio::buffer(msg.data(), msg.length()), 
-		boost::bind(&Master::send_complete, 
-			this,
-			boost::asio::placeholders::error,
-			boost::asio::placeholders::bytes_transferred));
-}
+// 	return 0;
+// }

@@ -193,6 +193,12 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
     		continue;
     	}
     	if(strcmp(argv[i] + 1, "slave") == 0) {
+    		// slave needs host address
+    		if(i+1 > argc-1) {
+    			std::cout<<"slave needs host address"<<std::endl;
+    			return false;
+    		}
+
     		opt->slave = true;
     		opt->host = argv[i + 1]; // we assume the next parameter is the master's host for the slave to connect to
     		i++;
