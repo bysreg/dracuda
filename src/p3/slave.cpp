@@ -6,6 +6,15 @@
 #include <cstdlib>
 #include <boost/lexical_cast.hpp>
 
+static const int write_msg_max_length = 1440000;
+static const int read_msg_max_length = 1000;
+
+Slave::Slave(boost::asio::io_service& io_service, 
+	tcp::resolver::iterator endpoint_iterator)
+	: io_service(io_service), 
+	  socket(io_service), read_msg(read_msg_max_length)
+{}
+
 void Slave::start(const std::string& host) 
 {
 	using boost::asio::ip::tcp;
@@ -72,7 +81,7 @@ void Slave::do_read_body()
 			if (!ec)
 			{
 				//printf("%.*s\n", read_msg.body_length(), read_msg.body());
-
+				std::cout<<"received : ";
 				std::cout.write(read_msg.body(), read_msg.body_length());
 				std::cout << "\n";
 				
@@ -87,13 +96,14 @@ void Slave::do_read_body()
 		});
 }
 
-void Slave::send_anjing()
+void Slave::send(const std::string& str)
 {
-	Message* msg = new Message;
-	std::string anjing = "anjing";
+	// std::cout<<"trying to send a string"<<std::endl;
 
-	msg->set_body_length(anjing.length());
-	std::memcpy(msg->body(), anjing.c_str(), anjing.length());
+	Message* msg = new Message(str.length());
+
+	msg->set_body_length(str.length());
+	std::memcpy(msg->body(), str.c_str(), str.length());
 	msg->encode_header();
 	send(msg);
 }
@@ -139,10 +149,24 @@ void Slave::do_write()
 		});
 }
 
+struct Test {
+	char a;
+	char b;
+	char c;
+	char d;
+	Test() {
+		a = 'a';
+		b = 'n';
+		c = 'j';
+		d = 'i';
+	}
+};
 
 void Slave::process_message(const Message& message)
 {
-	send_anjing();
+	//send("anjing");
+	Test test;
+	send(test);
 }
 
 // int main() 

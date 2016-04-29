@@ -6,6 +6,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <deque>
 #include <iostream>
+#include <set>
 
 #include "message.hpp"
 
@@ -14,45 +15,74 @@ class Connection
 {
 private:
 	typedef boost::asio::ip::tcp tcp;
-	typedef std::deque<Message*> MessageQueue;
+	typedef std::deque<MessagePtr> MessageQueue;
 
 public:
-	Connection(tcp::socket socket)
-	: socket_(std::move(socket))
-	{}
+	Connection(tcp::socket socket);	
 
 	void start();
-private:
+
+	template<typename T>
+	void send(const T& value) {
+		MessagePtr msg =  std::make_shared<Message>(sizeof(T));
+
+		msg->set_body_length(sizeof(T));
+		std::memcpy(msg->body(), &value, sizeof(T));
+		msg->encode_header();
+		send(msg);
+	}
 
 	void send(const std::string& str);
-	void send(Message* msg);
+	void send(MessagePtr msg); // connection will responsible for t
+
+private:
+
 	void do_read_header();
 	void do_read_body();
 	void do_write();
 
-	tcp::socket socket_;
-	Message read_msg_;
-	MessageQueue write_msgs_;
+	tcp::socket socket;
+	Message read_msg;
+	MessageQueue write_msgs;
 };
+
+typedef std::shared_ptr<Connection> ConnectionPtr;
 
 class Master
 {
+
 private:
 	typedef boost::asio::ip::tcp tcp;
 
-public:
-	Master(boost::asio::io_service& io_service)
-	: acceptor_(io_service, tcp::endpoint(tcp::v4(), 50000)),
-	socket_(io_service)
-	{
-		do_accept();
+public:	
+
+	static Master& start();	
+
+	template<typename T>
+	void send_all(const T& value) {
+		MessagePtr msg =  std::make_shared<Message>(sizeof(T));
+
+		msg->set_body_length(sizeof(T));
+		std::memcpy(msg->body(), &value, sizeof(T));
+		msg->encode_header();
+		send_all(msg);	
 	}
 
-	static void start();
+	void send_all(const std::string& str);
+	void send_all(MessagePtr msg);
 
 private:
+
+	Master(boost::asio::io_service& io_service);
+
+	// prevent from copying
+	Master(Master const& other) = delete;
+	void operator=(Master const& other) = delete;
+
 	void do_accept();
 
-	tcp::acceptor acceptor_;
-	tcp::socket socket_;
+	tcp::acceptor acceptor;
+	tcp::socket socket;
+
+	std::set<ConnectionPtr> connections;
 };

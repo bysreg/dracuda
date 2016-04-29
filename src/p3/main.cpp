@@ -29,6 +29,9 @@ unsigned char *cimg;
 PoolScene poolScene;
 CudaScene cudaScene;
 
+Master* master;
+Slave* slave;
+
 #define KEY_RAYTRACE_GPU SDLK_g
 
 struct Options
@@ -134,7 +137,10 @@ void RaytracerApplication::update( float delta_time )
 	poolScene.update(delta_time);
 	poolScene.toCudaScene(cudaScene);
 	poolScene.toDataBuffer(host_data);
-	
+
+	if(options.master)
+		master->send_all(poolScene);
+
 	gpuErrchk(cudaMemcpy(cudaScene.data, host_data, sizeof(float) * 7 * SPHERES, cudaMemcpyHostToDevice));
 	cudaRayTrace(&cudaScene, cimg);
 	gpuErrchk(cudaMemcpy(buffer, cimg, 4 * WIDTH * HEIGHT, cudaMemcpyDeviceToHost));
@@ -223,7 +229,7 @@ int main( int argc, char* argv[] )
 	cout << "master:slave => " << opt.master << ":" << opt.slave << endl;
 
 	if(opt.master) {
-		Master::start();
+		master = &Master::start();
 	}else if(opt.slave) {
 		Slave::start(opt.host);
 	}	

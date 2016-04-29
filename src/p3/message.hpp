@@ -7,10 +7,11 @@ class Message
 
 public:
 	static const int header_length = 4;
-	static const int max_body_length = 1440000; // 800 x 600 x 3
+	const int max_body_length;
 
 	// constructor
-	Message() : body_length_(0)
+	Message(int max_body_length) 
+		: body_length_(0), max_body_length(max_body_length)
 	{
 		// std::cout<<"Message::Message()"<<std::endl;
 		data_ = new char[header_length + max_body_length];
@@ -91,3 +92,5 @@ private:
 	char* data_;
 	int body_length_;
 };	
+
+typedef std::shared_ptr<Message> MessagePtr;

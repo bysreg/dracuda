@@ -21,16 +21,20 @@ public:
 
 
 	Slave(boost::asio::io_service& io_service, 
-		tcp::resolver::iterator endpoint_iterator)
-		: io_service(io_service), 
-		  socket(io_service)
-	{
+		tcp::resolver::iterator endpoint_iterator);	
 
+	template<typename T>
+	void send(const T& value) {
+		Message* msg = new Message(sizeof(T));
+
+		msg->set_body_length(sizeof(T));
+		std::memcpy(msg->body(), &value, sizeof(T));
+		msg->encode_header();
+		send(msg);
 	}
 
 	// communications
-	void send_anjing();
-
+	void send(const std::string& str);
 	void send(Message* message);
 
 private:
