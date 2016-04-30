@@ -70,6 +70,34 @@ public:
 
 };
 
+int LoadEnvmap(cudaArray **array, const char *filename) {
+	int width, height;
+	float endian;
+	FILE *file = fopen(filename, "r");
+	char tmp[10];
+	fscanf(file, "%s\n", tmp);
+	fscanf(file, "%d %d\n", &width, &height);
+	fscanf(file, "%f\n", &endian);
+	int size = width * height * sizeof(float4) ;
+	printf("HW: %d %d\n", width, height);
+	float *data = (float *)malloc(size);
+	fread(data, sizeof(float), height * width * 3, file);
+	for (int i = height * width - 1; i >= 0; i--) {
+		data[4 * i + 3] = 1.000;
+		data[4 * i + 2] = data[3 * i + 2];
+		data[4 * i + 1] = data[3 * i + 1];
+		data[4 * i + 0] = data[3 * i + 0];
+	}
+	fclose(file);
+
+	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat );
+	gpuErrchk(cudaMallocArray(array, &channelDesc, width, height));
+	gpuErrchk(cudaMemcpyToArray(*array, 0, 0, data, size, cudaMemcpyHostToDevice));
+	free(data);
+	return 0;
+}
+
+
 bool RaytracerApplication::initialize()
 {
 	poolScene.initialize();
@@ -85,30 +113,9 @@ bool RaytracerApplication::initialize()
 	cudaScene.near_clip = 0.01;
 	cudaScene.far_clip = 200.0;
 
-	int width, height;
-	float endian;
-	FILE *file = fopen("images/stpeters_probe.pfm", "r");
-	char tmp[10];
-	fscanf(file, "%s\n", tmp);
-	fscanf(file, "%d %d\n", &width, &height);
-	fscanf(file, "%f\n", &endian);
-	int size = width * height * sizeof(float4) ;
-	printf("HW: %d %d\n", width, height);
-	float *array = (float *)malloc(size);
-	fread(array, sizeof(float), height * width * 3, file);
-	for (int i = height * width - 1; i >= 0; i--) {
-		array[4 * i + 3] = 1.000;
-		array[4 * i + 2] = array[3 * i + 2];
-		array[4 * i + 1] = array[3 * i + 1];
-		array[4 * i + 0] = array[3 * i + 0];
-	}
-	fclose(file);
-
-	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat );
 	cudaArray *cu_2darray;
-	gpuErrchk(cudaMallocArray(&cu_2darray, &channelDesc, width, height));
-
-	gpuErrchk(cudaMemcpyToArray(cu_2darray, 0, 0, array, size, cudaMemcpyHostToDevice));
+	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat );
+	LoadEnvmap(&cu_2darray, "images/stpeters_probe.pfm");
 	bindEnvmap(cu_2darray, channelDesc);
 
 	// CUDA part
