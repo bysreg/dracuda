@@ -6,15 +6,15 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-#define WIDTH 64
-#define HEIGHT 48
+#define WIDTH 768
+#define HEIGHT 576
 
 #define PLANES 1
 #define SPHERES 4
 #define SOLIDS 2
 
-#define TABLE_WIDTH 20.5
-#define TABLE_HEIGHT 41.0
+#define TABLE_WIDTH 15
+#define TABLE_HEIGHT 30
 #define TABLE_EDGE 2
 
 

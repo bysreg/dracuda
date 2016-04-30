@@ -19,10 +19,10 @@ public:
     ~CameraRoamControl();
 
     void update( float dt );
-    void handle_event( const Application* app, const SDL_Event& event );
+    void handle_event( const SDL_Event& event );
 
     // the camera of this control
-    Camera camera;
+    Camera *camera;
 
 private:
 

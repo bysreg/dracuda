@@ -73,8 +73,9 @@ public:
 bool RaytracerApplication::initialize()
 {
 	poolScene.initialize();
-	poolScene.camera.position = Vector3(0, 12, 0);
+	poolScene.camera.position = Vector3(0, 25, 0);
 	poolScene.camera.orientation = Quaternion (0.717, -0.717, 0, 0);
+	camera_control.camera = &poolScene.camera;
 	if (!buffer) {
 		buffer = new unsigned char [WIDTH * HEIGHT * 4];
 	}
@@ -139,6 +140,7 @@ Quaternion FromToRotation(Vector3 u, Vector3 v)
 
 void RaytracerApplication::update( float delta_time )
 {
+	camera_control.update(delta_time);
 	if (options.master) {
 		time += delta_time;
 		poolScene.update(delta_time);
@@ -175,7 +177,7 @@ void RaytracerApplication::render()
 
 void RaytracerApplication::handle_event( const SDL_Event& event )
 {
-	camera_control.handle_event( this, event );
+	camera_control.handle_event( event );
 
     switch ( event.type )
     {
@@ -261,7 +263,7 @@ int main( int argc, char* argv[] )
     RaytracerApplication app( opt );
 	cout << "master:slave => " << opt.master << ":" << opt.slave << endl;
 
-	float fps = 1.0;
+	float fps = 20.0;
 	const char* title = "DRACUDA";
 
 	ret = Application::start_application(&app, WIDTH, HEIGHT, fps, title);

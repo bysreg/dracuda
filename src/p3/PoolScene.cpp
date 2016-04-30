@@ -19,7 +19,7 @@ void PoolScene::initialize()
 		balls[i].position = ball_initial_positions[i];
 		balls[i].orientation = Quaternion::Identity();
 	}
-	balls[2].velocity = Vector3(0.9, 0, -0.80);
+	balls[2].velocity = Vector3(3.9, 0, -3.80);
 	camera.fov = 0.785;
 	camera.aspect = (WIDTH + 0.0) / (HEIGHT + 0.0);
 	camera.near_clip = 0.01;
@@ -69,7 +69,7 @@ void PoolScene::update (float delta_time)
 		}
 	}
 
-	float width = 5.0, height = 5.0;
+	float width = TABLE_WIDTH, height = TABLE_HEIGHT;
 	// Collision with walls
 	for (int i = 0; i < SPHERES; i++) {
 		if (balls[i].position.x < -width) {
@@ -99,12 +99,12 @@ void PoolScene::update (float delta_time)
 	for (int i = 0; i < SPHERES; i++) {
 		Vector3 distance = balls[i].velocity * delta_time;
 		balls[i].position += distance;
-		Vector3 axis = normalize(Vector3(distance.z, 0, -distance.x));
+		Vector3 axis = normalize(Vector3(balls[i].velocity.z, 0, -balls[i].velocity.x));
 		Quaternion rotation = Quaternion(axis, length(distance));
-		if (length(distance) <= 0) {
+		if (length(distance) == 0) {
 			rotation = Quaternion::Identity();
 		}
-		balls[i].orientation = balls[i].orientation * rotation;
+		balls[i].orientation = rotation * balls[i].orientation;
 	}
 
 }

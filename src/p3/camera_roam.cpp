@@ -35,10 +35,8 @@ void CameraRoamControl::set_dir( bool pressed, int index, Direction newdir )
         direction[index] = DZERO;
 }
 
-void CameraRoamControl::handle_event( const Application* app, const SDL_Event& event )
+void CameraRoamControl::handle_event( const SDL_Event& event )
 {
-    int width, height;
-    app->get_dimension( &width, &height );
     int newidx = -1;
     Direction newdir = DZERO;
 
@@ -100,10 +98,10 @@ void CameraRoamControl::handle_event( const Application* app, const SDL_Event& e
 
     case SDL_MOUSEMOTION:
         if ( rotation == RPITCHYAW ) {
-            camera.yaw( -RotationSpeed * event.motion.xrel );
-            camera.pitch( -RotationSpeed * event.motion.yrel );
+            camera->yaw( -RotationSpeed * event.motion.xrel );
+            camera->pitch( -RotationSpeed * event.motion.yrel );
         } else if ( rotation == RROLL ) {
-            camera.roll( RotationSpeed * event.motion.yrel );
+            camera->roll( RotationSpeed * event.motion.yrel );
         }
         break;
 
@@ -122,5 +120,5 @@ void CameraRoamControl::update( float dt )
         DirectionTable[direction[1]],
         DirectionTable[direction[2]]
     );
-    camera.translate( displacement * dist );
+    camera->translate( displacement * dist );
 }
