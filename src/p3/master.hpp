@@ -62,6 +62,8 @@ private:
 
 public:	
 
+	static int read_msg_max_length;
+
 	static Master& start();	
 
 	template<typename T>

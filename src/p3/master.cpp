@@ -1,12 +1,13 @@
 #include <boost/thread/thread.hpp>
 #include "master.hpp"
 
-static const int read_msg_max_length = 800*600*3; 
-static const int write_msg_max_length = 1000;
+// static const int read_msg_max_length = 800*600*3; 
+
+int Master::read_msg_max_length = 800*600*3;
 
 Connection::Connection(boost::asio::ip::tcp::socket socket_, 
 	Master& master_)
-	: socket(std::move(socket_)), read_msg(read_msg_max_length), 
+	: socket(std::move(socket_)), read_msg(Master::read_msg_max_length), 
 	  master(master_)
 {}
 
@@ -111,7 +112,7 @@ void Connection::do_read_body()
 			{
 				// std::cout.write(read_msg.body(), read_msg.body_length());
 				// std::cout << "\n";
-				std::cout<<"receiving something : ";
+				// std::cout<<"receiving something : ";
 				master.on_message_received(read_msg);
 				do_read_header();
 			}

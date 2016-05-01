@@ -6,13 +6,14 @@
 #include <cstdlib>
 #include <boost/lexical_cast.hpp>
 
-static const int write_msg_max_length = 800*600*3;
-static const int read_msg_max_length = 1000;
+// static const int read_msg_max_length = 1000;
+
+int Slave::read_msg_max_length = 1000;
 
 Slave::Slave(boost::asio::io_service& io_service, 
 	tcp::resolver::iterator endpoint_iterator_)
 	: io_service(io_service), endpoint_iterator(endpoint_iterator_),
-	  socket(io_service), read_msg(read_msg_max_length)
+	  socket(io_service), read_msg(Slave::read_msg_max_length)
 {}
 
 Slave& Slave::start(const std::string& host) 

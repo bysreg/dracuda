@@ -123,9 +123,14 @@ bool RaytracerApplication::initialize()
 	cudaInitialize();
 	std::cout << "Cuda initialized" << std::endl;
 	if(options.master) {
+		// master's read buffer need to be able to accomodate
+		// image that is being sent from the slave
+		Master::read_msg_max_length = WIDTH * HEIGHT * 4;
 		master = &Master::start();
 		master->set_on_message_received(on_master_receive_message);
 	}else if(options.slave) {
+		// slave only needs to read scene's data from master
+		Slave::read_msg_max_length = sizeof(cudaScene);
 		slave = &Slave::start(options.host);
 		slave->set_on_message_received(on_slave_receive_message);
 		slave->run();
@@ -261,14 +266,14 @@ void on_slave_receive_message(const Message& message)
 
 int main( int argc, char* argv[] )
 {
-    Options opt;
+	Options opt;
 	int ret = 0;
 
-    if ( !parse_args( &opt, argc, argv ) ) {
-        return 1;
-    }
+	if ( !parse_args( &opt, argc, argv ) ) {
+	    return 1;
+	}
 
-    RaytracerApplication app( opt );
+	RaytracerApplication app( opt );
 	cout << "master:slave => " << opt.master << ":" << opt.slave << endl;
 
 	float fps = 20.0;

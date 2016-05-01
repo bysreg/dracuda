@@ -13,6 +13,8 @@ private:
 
 public:
 
+	static int read_msg_max_length;
+
 	// create a new thread to run slave tcp 
 	static Slave& start(const std::string& host);
 
