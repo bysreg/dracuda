@@ -238,7 +238,7 @@ void on_master_receive_message(const Message& message)
 	// we receive the image from slave
 	// for now just print it
 
-//	printf("BODY LENG %d\n", message.body_length());
+	//	printf("BODY LENG %d\n", message.body_length());
 	std::memcpy(buffer, message.body(), message.body_length());
 	/*
 	std::cout<<"receive : ";
@@ -273,6 +273,12 @@ int main( int argc, char* argv[] )
 
 	float fps = 20.0;
 	const char* title = "DRACUDA";
+
+	if(opt.master) {
+		title = "DRACUDA - Master";
+	}else if(opt.slave) {
+		title = "DRACUDA - Slave";
+	}
 
 	ret = Application::start_application(&app, WIDTH, HEIGHT, fps, title);
 
