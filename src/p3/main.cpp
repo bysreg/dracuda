@@ -128,6 +128,7 @@ bool RaytracerApplication::initialize()
 	}else if(options.slave) {
 		slave = &Slave::start(options.host);
 		slave->set_on_message_received(on_slave_receive_message);
+		slave->run();
 	}	
 
     return true;

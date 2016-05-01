@@ -34,6 +34,7 @@ public:
 		send(msg);
 	}
 
+	void send(const unsigned char*, int size);
 	void send(const std::string& str);
 	void send(MessagePtr msg); // connection will responsible for t
 

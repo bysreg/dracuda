@@ -6,12 +6,12 @@
 #include <cstdlib>
 #include <boost/lexical_cast.hpp>
 
-static const int write_msg_max_length = 1440000;
-static const int read_msg_max_length = 100000;
+static const int write_msg_max_length = 800*600*3;
+static const int read_msg_max_length = 1000;
 
 Slave::Slave(boost::asio::io_service& io_service, 
-	tcp::resolver::iterator endpoint_iterator)
-	: io_service(io_service), 
+	tcp::resolver::iterator endpoint_iterator_)
+	: io_service(io_service), endpoint_iterator(endpoint_iterator_),
 	  socket(io_service), read_msg(read_msg_max_length)
 {}
 
@@ -25,9 +25,7 @@ Slave& Slave::start(const std::string& host)
 
 	tcp::resolver resolver(io_service);
 	auto endpoint_iterator = resolver.resolve({ host, boost::lexical_cast<std::string>(50000)}); // 1030 is the port number
-	static Slave slave(io_service, endpoint_iterator);	
-
-	boost::thread t(boost::bind(&Slave::run, &slave, endpoint_iterator));
+	static Slave slave(io_service, endpoint_iterator);
 
 	return slave;
 }
@@ -35,11 +33,12 @@ Slave& Slave::start(const std::string& host)
 void Slave::stop()
 {}
 
-void Slave::run(boost::asio::ip::tcp::resolver::iterator endpoint_iterator)
+void Slave::run()
 {
 	do_connect(endpoint_iterator);
 
-	io_service.run();
+	boost::thread t(boost::bind(&boost::asio::io_service::run,
+		&io_service));
 }
 
 void Slave::do_connect(tcp::resolver::iterator endpoint_iterator)
@@ -57,6 +56,8 @@ void Slave::do_connect(tcp::resolver::iterator endpoint_iterator)
 
 void Slave::do_read_header()
 {
+	// std::cout<<"trying to call read header"<<std::endl;
+
 	// async read the message header
 	boost::asio::async_read(socket,
 		boost::asio::buffer(read_msg.data(), Message::header_length),
@@ -75,6 +76,8 @@ void Slave::do_read_header()
 
 void Slave::do_read_body()
 {
+	// std::cout<<"trying to call read body"<<std::endl;
+
 	// async read the message body
 	boost::asio::async_read(socket,
 		boost::asio::buffer(read_msg.body(), read_msg.body_length()),
@@ -92,6 +95,9 @@ void Slave::do_read_body()
 			}
 			else
 			{
+				// something is wrong
+				std::cout<<"something is wrong "<<ec<<std::endl;
+
 				socket.close();
 			}
 		});
@@ -175,7 +181,7 @@ struct Test {
 
 void Slave::set_on_message_received(std::function<void(const Message& message)> const& cb)
 {
-	on_message_received = cb;
+	on_message_received = cb;	
 }
 
 void Slave::process_message(const Message& message)
@@ -186,20 +192,37 @@ void Slave::process_message(const Message& message)
 	}
 }
 
+static void test_char_array(unsigned char* arr, int size)
+{
+	for(int i=0;i<size;i++)
+	{
+		arr[i] = (i % 10) + '0';
+		// std::cout<< arr[i];
+	}
+	// std::cout<<std::endl;
+}
+
 // int main() 
 // {
 // 	std::string localhost = "localhost";
 // 	Slave& slave = Slave::start(localhost);
+// 	const int size = 800*600*3;
+// 	unsigned char big_char_arr[size];
+// 	test_char_array(big_char_arr, size);
 
 // 	slave.set_on_message_received(
-// 		[&slave](const Message& msg) {
-// 			std::cout<<"receive : ";
+// 		[&slave, &big_char_arr, size](const Message& msg) {		
 // 			std::cout.write(msg.body(), msg.body_length());
 // 			std::cout << "\n";
 
-// 			slave.send("anjing");
+// 			std::cout<<"^^^ receive ("<<msg.body_length()<<")" << std::endl;
+
+// 			// slave.send("anjing");
+// 			slave.send(big_char_arr, size);
 // 		}
 // 	);
+
+// 	slave.run();
 
 // 	while(true) {}
 

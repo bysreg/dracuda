@@ -6,7 +6,7 @@ class Message
 {
 
 public:
-	static const int header_length = 4;
+	static const int header_length = sizeof(int);
 	const int max_body_length;
 
 	// constructor
@@ -61,23 +61,22 @@ public:
 	}
 
 	inline bool decode_header()
-	{
-		char header[header_length + 1] = "";
-		std::strncat(header, data_, header_length);
-		body_length_ = std::atoi(header);
+	{		
+		std::memcpy(&body_length_, data_, sizeof(body_length_));				
+		// std::cout<<"body length is : " << body_length_<<std::endl;
 		if (body_length_ > max_body_length)
 		{
+			// std::cout<<"message is not valid"<<std::endl;
 			body_length_ = 0;
 			return false;
 		}
+		// std::cout<<"message is valid"<<std::endl;
 		return true;
 	}
 
 	inline void encode_header()
 	{
-		char header[header_length + 1] = "";
-		std::sprintf(header, "%4d", static_cast<int>(body_length_));
-		std::memcpy(data_, header, header_length);
+		std::memcpy(data_, &body_length_, sizeof(body_length_));
 	}
 
 	inline void set_body_length(int val)
