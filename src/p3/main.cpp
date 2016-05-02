@@ -33,7 +33,7 @@ CudaScene cudaScene;
 Master* master;
 Slave* slave;
 
-void on_master_receive_message(const Message& message);
+void on_master_receive_message(int conn_idx, const Message& message);
 void on_slave_receive_message(const Message& message);
 
 #define KEY_RAYTRACE_GPU SDLK_g
@@ -150,6 +150,18 @@ Quaternion FromToRotation(Vector3 u, Vector3 v)
 	return normalize(q);
 }
 
+void assign_work()
+{
+	int n = master->get_connections_count();
+
+	// todo : do some splitting work here, Wi (work-i)
+
+	for(int i=0;i<n;i++) 
+	{
+		// todo : assign Wi to slave-i
+		master->send(i, cudaScene);
+	}	
+}
 
 void RaytracerApplication::update( float delta_time )
 {
@@ -158,7 +170,7 @@ void RaytracerApplication::update( float delta_time )
 		time += delta_time;
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);
-		master->send_all(cudaScene);
+		assign_work();		
 	} else if (!options.slave) {
 		time += delta_time;
 		poolScene.update(delta_time);
@@ -238,18 +250,16 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
 
 using namespace std;
 
-void on_master_receive_message(const Message& message)
+void on_master_receive_message(int conn_idx, const Message& message)
 {
-	// we receive the image from slave
-	// for now just print it
+	// we receive the image from slave-i
+	// for now only display image from slave 0
+	// until we have proper work decomposition
+	if(conn_idx != 0)
+		return;
 
 	//	printf("BODY LENG %d\n", message.body_length());
 	std::memcpy(buffer, message.body(), message.body_length());
-	/*
-	std::cout<<"receive : ";
-	std::cout.write(message.body(), message.body_length());
-	std::cout << "\n";
-	*/
 }
 
 void on_slave_receive_message(const Message& message) 

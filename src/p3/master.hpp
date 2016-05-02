@@ -6,7 +6,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <deque>
 #include <iostream>
-#include <set>
+#include <vector>
 
 #include "message.hpp"
 
@@ -37,6 +37,8 @@ public:
 	void send(const unsigned char*, int size);
 	void send(const std::string& str);
 	void send(MessagePtr msg); // connection will responsible for t
+
+	int idx;
 
 private:
 
@@ -79,10 +81,21 @@ public:
 	void send_all(const std::string& str);
 	void send_all(MessagePtr msg);
 
+	template<typename T>
+	void send(int conn_idx, const T& value) {
+		MessagePtr msg =  std::make_shared<Message>(sizeof(T));
+
+		msg->set_body_length(sizeof(T));
+		std::memcpy(msg->body(), &value, sizeof(T));
+		msg->encode_header();
+		send(conn_idx, msg);			
+	}
+	void send(int conn_idx, MessagePtr msg);
+
 	int get_connections_count() const;
 
 	// callbacks
-	void set_on_message_received(std::function<void(const Message&)> const& cb);
+	void set_on_message_received(std::function<void(int conn_idx, const Message&)> const& cb);
 	void set_on_connection_started(std::function<void(Connection&)> const& cb);
 
 private:
@@ -94,7 +107,7 @@ private:
 	void operator=(Master const& other) = delete;
 
 	// callbacks
-	std::function<void(const Message&)> on_message_received;
+	std::function<void(int conn_idx, const Message&)> on_message_received;
 	std::function<void(Connection&)> on_connection_started;
 
 	void do_accept();
@@ -102,5 +115,5 @@ private:
 	tcp::acceptor acceptor;
 	tcp::socket socket;
 
-	std::set<ConnectionPtr> connections;
+	std::vector<ConnectionPtr> connections;
 };
