@@ -9,7 +9,7 @@ class Slave
 {
 private:
 	typedef boost::asio::ip::tcp tcp;
-	typedef std::deque<Message*> MessageQueue;
+	typedef std::deque<MessagePtr> MessageQueue;
 
 public:
 
@@ -27,17 +27,17 @@ public:
 
 	template<typename T>
 	void send(const T& value) {
-		Message* msg = new Message(sizeof(T));
+		MessagePtr msg =  std::make_shared<Message>(sizeof(T));
 
 		msg->set_body_length(sizeof(T));
 		std::memcpy(msg->body(), &value, sizeof(T));
 		msg->encode_header();
-		send(msg);
+		send(msg);	
 	}
 
 	void send(const unsigned char*, int size);
 	void send(const std::string& str);
-	void send(Message* message);
+	void send(MessagePtr message);
 
 	void run();
 

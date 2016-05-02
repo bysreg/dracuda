@@ -79,6 +79,8 @@ public:
 	void send_all(const std::string& str);
 	void send_all(MessagePtr msg);
 
+	int get_connections_count() const;
+
 	// callbacks
 	void set_on_message_received(std::function<void(const Message&)> const& cb);
 	void set_on_connection_started(std::function<void(Connection&)> const& cb);

@@ -1,8 +1,6 @@
 #include <boost/thread/thread.hpp>
 #include "master.hpp"
 
-// static const int read_msg_max_length = 800*600*3; 
-
 int Master::read_msg_max_length = 800*600*3;
 
 Connection::Connection(boost::asio::ip::tcp::socket socket_, 
@@ -179,6 +177,11 @@ void Master::send_all(MessagePtr msg)
 	}
 }
 
+int Master::get_connections_count() const
+{
+	return connections.size();
+}
+
 void Master::set_on_message_received(std::function<void(const Message& message)> const& cb)
 {
 	on_message_received = cb;
@@ -232,6 +235,10 @@ static void test_char_array(unsigned char* arr, int size)
 // 		master.set_on_connection_started(
 // 			[&master, &big_char_arr, size](Connection& connection) {
 // 				// connection.send(big_char_arr, size);
+					
+// 				// first connection from a slave, 
+// 				// say hello world
+
 // 				connection.send("hello world");
 // 			}
 // 		);
