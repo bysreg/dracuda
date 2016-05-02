@@ -114,6 +114,16 @@ __device__ float3 do_material (int geom, float3 diffuse, float3 normal, float3 p
 	} else {
 		mate = lerp(diffuse, cue_color, smoothstep(0.9, 0.91, abs(pos.y)) + smoothstep(0.55, 0.56, abs(pos.z)));
 	}
+	switch(geom) {
+		case 1:
+			float d = distanceToSegment( make_float2(0.0,0.22), make_float2(0.0,-0.22), make_float2(pos.x, pos.z) );
+			mate *= smoothstep( 0.04, 0.05, d );
+			break;
+		case 2:
+			float d0 = distanceToSegment( make_float2(0.0,0.22), make_float2(0.0,-0.22), make_float2(pos.x, pos.z) );
+		default:
+			break;
+	}
 
 	/*
 	// Cue
