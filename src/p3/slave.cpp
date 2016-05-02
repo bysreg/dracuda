@@ -6,8 +6,6 @@
 #include <cstdlib>
 #include <boost/lexical_cast.hpp>
 
-// static const int read_msg_max_length = 1000;
-
 int Slave::read_msg_max_length = 1000;
 
 Slave::Slave(boost::asio::io_service& io_service, 
@@ -106,7 +104,7 @@ void Slave::do_read_body()
 
 void Slave::send(const unsigned char* chars, int size)
 {
-	Message* msg = new Message(size);
+	MessagePtr msg = std::make_shared<Message>(size);
 
 	msg->set_body_length(size);
 	std::memcpy(msg->body(), chars, size);
@@ -118,7 +116,7 @@ void Slave::send(const std::string& str)
 {
 	// std::cout<<"trying to send a string"<<std::endl;
 
-	Message* msg = new Message(str.length());
+	MessagePtr msg = std::make_shared<Message>(str.length());
 
 	msg->set_body_length(str.length());
 	std::memcpy(msg->body(), str.c_str(), str.length());
@@ -126,7 +124,7 @@ void Slave::send(const std::string& str)
 	send(msg);
 }
 
-void Slave::send(Message* msg)
+void Slave::send(MessagePtr msg)
 {
 	io_service.post(
 	[this, msg]()
@@ -149,10 +147,6 @@ void Slave::do_write()
 		{
 			if (!ec)
 			{
-				// delete the recent sent message
-				Message* sent = write_msgs.front();
-				delete sent;
-
 				write_msgs.pop_front();
 				if (!write_msgs.empty())
 				{
@@ -207,7 +201,7 @@ static void test_char_array(unsigned char* arr, int size)
 // {
 // 	std::string localhost = "localhost";
 // 	Slave& slave = Slave::start(localhost);
-// 	const int size = 800*600*3;
+// 	const int size = 10;
 // 	unsigned char big_char_arr[size];
 // 	test_char_array(big_char_arr, size);
 
@@ -218,8 +212,8 @@ static void test_char_array(unsigned char* arr, int size)
 
 // 			std::cout<<"^^^ receive ("<<msg.body_length()<<")" << std::endl;
 
-// 			// slave.send("anjing");
-// 			slave.send(big_char_arr, size);
+// 			slave.send("anjing");
+// 			// slave.send(big_char_arr, size);
 // 		}
 // 	);
 
