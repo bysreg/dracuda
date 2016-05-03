@@ -19,6 +19,8 @@ struct CudaScene
 	float aspect;
 	float near_clip;
 	float far_clip;
+	int y0;
+	int y1;
 };
 
 #endif

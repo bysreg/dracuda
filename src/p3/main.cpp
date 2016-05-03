@@ -154,13 +154,25 @@ void assign_work()
 {
 	int n = master->get_connections_count();
 
-	// todo : do some splitting work here, Wi (work-i)
+	if(n == 0)
+		return;
 
-	for(int i=0;i<n;i++) 
+	int height_per_slave = HEIGHT / n;
+	int rem = HEIGHT - height_per_slave*n;
+
+	for(int i=0;i<n;i++)
 	{
-		// todo : assign Wi to slave-i
+		// always splitting equally for now
+		cudaScene.y0 = i*height_per_slave;
+		cudaScene.y1 = cudaScene.y0 + height_per_slave - 1;
+
+		if(i==n-1)
+		{
+			cudaScene.y1 += rem;
+		}
+
 		master->send(i, cudaScene);
-	}	
+	}
 }
 
 void RaytracerApplication::update( float delta_time )
@@ -170,7 +182,7 @@ void RaytracerApplication::update( float delta_time )
 		time += delta_time;
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);
-		assign_work();		
+		assign_work();
 	} else if (!options.slave) {
 		time += delta_time;
 		poolScene.update(delta_time);
