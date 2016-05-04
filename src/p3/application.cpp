@@ -121,16 +121,20 @@ static void process_events( Application* app )
 static void loop_update_func( LoopData* data, bool is_skip )
 {
     // always pump events and update
-    SDL_PumpEvents();
-    process_events( data->app );
+	if (data->app->show_window) {
+		SDL_PumpEvents();
+		process_events( data->app );
+	}
     data->app->update( 1.0 / data->fps );
     // only render if not skipping this frame
     if ( !is_skip ) {
-        data->app->render();
-        // flush so the code doesn't have to remember to
-        glFlush();
-        // swap buffers
-        SDL_GL_SwapBuffers();
+		if (data->app->show_window) {
+			data->app->render();
+			// flush so the code doesn't have to remember to
+			glFlush();
+			// swap buffers
+			SDL_GL_SwapBuffers();
+		}
     }
 }
 
@@ -216,9 +220,10 @@ static void run_main_loop( void (*update_fn)( LoopData*, bool ), LoopData* data,
     }
 }
 
-int Application::start_application( Application* app, int width, int height, float fps, const char* title )
+int Application::start_application( Application* app, int width, int height, float fps, const char* title, bool show_window)
 {
     LoopData ldata;
+	app->show_window = show_window;
 
     assert( app );
     // only create an app the first time this function is called
@@ -226,13 +231,22 @@ int Application::start_application( Application* app, int width, int height, flo
         return -2;
 
     // init SDL
-    if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) == -1 ) {
-        std::cout << "Error initializing SDL: " << SDL_GetError() << std::endl;
-        return -1;
-    }
+	if (show_window) {
+		if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) == -1 ) {
+			std::cout << "Error initializing SDL: " << SDL_GetError() << std::endl;
+			return -1;
+		}
+	} else {
+		if ( SDL_Init( SDL_INIT_TIMER ) == -1 ) {
+			std::cout << "Error initializing SDL: " << SDL_GetError() << std::endl;
+			return -1;
+		}
+	}
 
-    if ( !initialize_window( width, height, title ) )
-        goto FAIL;
+	if (show_window) {
+		if ( !initialize_window( width, height, title ) )
+			goto FAIL;
+	}
 
     // initialize the application
     if ( !app->initialize() )
