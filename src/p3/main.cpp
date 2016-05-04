@@ -260,7 +260,7 @@ void RaytracerApplication::do_gpu_raytracing()
 
 static bool parse_args( Options* opt, int argc, char* argv[] )
 {
-    for (int i = 2; i < argc; i++)
+    for (int i = 1; i < argc; i++)
     {
     	if(strcmp(argv[i] + 1, "master") == 0) {    		
     		opt->master = true;
@@ -349,8 +349,9 @@ int main( int argc, char* argv[] )
 	}else if(opt.slave) {
 		title = "DRACUDA - Slave";
 	}
+	bool show_window = !opt.slave;
 
-	ret = Application::start_application(&app, WIDTH, HEIGHT, fps, title);
+	ret = Application::start_application(&app, WIDTH, HEIGHT, fps, title, show_window);
 
 	return ret;
 }

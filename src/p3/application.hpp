@@ -18,7 +18,7 @@ public:
     static int start_application(
         Application* app,
         int width, int height, float fps,
-        const char* title );
+        const char* title , bool show_window);
 
     Application();
 
@@ -69,6 +69,7 @@ public:
      */
     void take_screenshot();
 
+	bool show_window;
 private:
 
     // in case multiple threads are used
