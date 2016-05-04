@@ -204,6 +204,7 @@ void RaytracerApplication::update( float delta_time )
 		poolScene.toCudaScene(cudaScene);
 		assign_work();
 	} else if (!options.slave) {
+		// not master and not slave
 		time += delta_time;
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);

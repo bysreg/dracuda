@@ -178,12 +178,14 @@ void curandSetupKernel()
 	curand_init(1578, w, 0, cuConstants.curand + w);
 }
 __global__
-void cudaRayTraceKernel (unsigned char *img)
+void cudaRayTraceKernel (unsigned char *img, int y_start)
 {
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int y = blockIdx.y * blockDim.y + threadIdx.y + y_start;
 	int w = y * WIDTH + x;
 
+	if(w >= WIDTH * HEIGHT)
+		return;
 
 	__shared__ float mem[400];
 	int w2 = threadIdx.y * blockDim.x + threadIdx.x;
@@ -351,12 +353,13 @@ void cudaRayTrace(CudaScene *scene, unsigned char *img)
 	//printf("CudaRayTrace\n");
 	//printf("%p\n", scene);
 	gpuErrchk(cudaMemcpyToSymbol(cuScene, scene, sizeof(CudaScene)));
+	int height = scene->y1 - scene->y0 + 1;
 
 	dim3 dimBlock(16, 16);
-	dim3 dimGrid(WIDTH / 16, HEIGHT / 16);
+	dim3 dimGrid(WIDTH / 16, (height + 16 - 1) / 16);
 
 	double startTime = CycleTimer::currentSeconds();
-	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(img);
+	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(img, scene->y0);
 	cudaDeviceSynchronize();
 	//printf("CUDA rendering time: %lf\n", CycleTimer::currentSeconds() - startTime);
 
