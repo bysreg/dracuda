@@ -13,14 +13,16 @@
 
 #include "master.hpp"
 #include "slave.hpp"
+#include "slave_info.hpp"
 #include "base64.h"
 
 #include <SDL.h>
-
 #include <stdlib.h>
 #include <iostream>
 #include <cstring>
 #include <string>
+#include <climits>
+#include <vector>
 
 using namespace std;
 
@@ -30,9 +32,16 @@ unsigned char* buffer = 0;
 PoolScene poolScene;
 CudaScene cudaScene;
 
-Master* master;
-Slave* slave;
+static Master* master;
+static Slave* slave;
 
+// master's related variable
+static unsigned int cur_frame_number = 0;
+static int buffer_frame_height = 0;
+static bool send_scene_status = false; // can we send scene data to slave?
+static SlaveInfo slaves_info[100] = {};
+
+void on_master_connection_started(Connection& conn);
 void on_master_receive_message(int conn_idx, const Message& message);
 void on_slave_receive_message(const Message& message);
 
@@ -123,12 +132,18 @@ bool RaytracerApplication::initialize()
 	cudaInitialize();
 	std::cout << "Cuda initialized" << std::endl;
 	if(options.master) {
+		// initialize master
+
 		// master's read buffer need to be able to accomodate
 		// image that is being sent from the slave
 		Master::read_msg_max_length = WIDTH * HEIGHT * 4;
 		master = &Master::start();
 		master->set_on_message_received(on_master_receive_message);
+		master->set_on_connection_started(on_master_connection_started);
+		send_scene_status = true;
 	}else if(options.slave) {
+		// initialize slave
+
 		// slave only needs to read scene's data from master
 		Slave::read_msg_max_length = sizeof(cudaScene);
 		slave = &Slave::start(options.host);
@@ -154,22 +169,26 @@ void assign_work()
 {
 	int n = master->get_connections_count();
 
-	if(n == 0)
+	if(n == 0 || !send_scene_status)
 		return;
 
 	int height_per_slave = HEIGHT / n;
 	int rem = HEIGHT - height_per_slave*n;
 
+	send_scene_status = false;
+	std::cout<< "sending to slave frame "<<(cur_frame_number + 1)<<std::endl;
 	for(int i=0;i<n;i++)
 	{
 		// always splitting equally for now
 		cudaScene.y0 = i*height_per_slave;
-		cudaScene.y1 = cudaScene.y0 + height_per_slave - 1;
+		cudaScene.y1 = cudaScene.y0 + height_per_slave - 1;		
 
 		if(i==n-1)
 		{
 			cudaScene.y1 += rem;
 		}
+
+		slaves_info[i].y0 = cudaScene.y0;
 
 		master->send(i, cudaScene);
 	}
@@ -177,6 +196,7 @@ void assign_work()
 
 void RaytracerApplication::update( float delta_time )
 {
+	cur_frame_number = (cur_frame_number + 1) % UINT_MAX;
 	camera_control.update(delta_time);
 	if (options.master) {
 		time += delta_time;
@@ -262,16 +282,30 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
 
 using namespace std;
 
+void on_master_connection_started(Connection& conn)
+{}
+
 void on_master_receive_message(int conn_idx, const Message& message)
 {
-	// we receive the image from slave-i
-	// for now only display image from slave 0
-	// until we have proper work decomposition
-	if(conn_idx != 0)
-		return;
+	// we receive the image from slave-i	
+	int byte_offset = slaves_info[conn_idx].y0 * WIDTH * 4;
 
-	//	printf("BODY LENG %d\n", message.body_length());
-	std::memcpy(buffer, message.body(), message.body_length());
+	std::cout<<"receive piece of image from " 
+		<< conn_idx << " " << slaves_info[conn_idx].y0 << " "
+		<< message.body_length() << std::endl;
+
+	std::memcpy(buffer + byte_offset, message.body(), message.body_length());
+
+	// we could only send the next scene data to slave
+	// only if we have all the image pieces from the slaves
+	int piece_height = ((message.body_length() / 4) / WIDTH);
+	buffer_frame_height += piece_height;
+
+	if(buffer_frame_height >= HEIGHT) 
+	{		
+		buffer_frame_height = 0;
+		send_scene_status = true;
+	}
 }
 
 void on_slave_receive_message(const Message& message) 
@@ -282,7 +316,9 @@ void on_slave_receive_message(const Message& message)
 	gpuErrchk(cudaMemcpy(buffer, cudaBuffer, 4 * WIDTH * HEIGHT, cudaMemcpyDeviceToHost));
 
 	//std::string encoded_str = base64_encode(buffer, 4 * WIDTH * HEIGHT);
-	slave->send(buffer, WIDTH * HEIGHT * 4);
+	int height = cudaSceneCopy.y1 - cudaSceneCopy.y0 + 1;
+	int offset = cudaSceneCopy.y0 * WIDTH * 4;
+	slave->send(buffer + offset, WIDTH * (height) * 4);
 	//slave->send(encoded_str);
 }
 

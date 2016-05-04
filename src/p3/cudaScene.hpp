@@ -20,7 +20,7 @@ struct CudaScene
 	float near_clip;
 	float far_clip;
 	int y0;
-	int y1;
+	int y1; // inclusive
 };
 
 #endif
