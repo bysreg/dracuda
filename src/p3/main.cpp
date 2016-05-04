@@ -189,6 +189,7 @@ void assign_work()
 		}
 
 		slaves_info[i].y0 = cudaScene.y0;
+		slaves_info[i].send_time = CycleTimer::currentSeconds();
 
 		master->send(i, cudaScene);
 	}
@@ -288,12 +289,17 @@ void on_master_connection_started(Connection& conn)
 
 void on_master_receive_message(int conn_idx, const Message& message)
 {
+	// update the slave's response time data
+	slaves_info[conn_idx].response_duration = CycleTimer::currentSeconds() 
+		- slaves_info[conn_idx].send_time;
+
 	// we receive the image from slave-i	
 	int byte_offset = slaves_info[conn_idx].y0 * WIDTH * 4;
 
 	std::cout<<"receive piece of image from " 
 		<< conn_idx << " " << slaves_info[conn_idx].y0 << " "
-		<< message.body_length() << std::endl;
+		<< message.body_length() << " "
+		<< slaves_info[conn_idx].response_duration << std::endl;
 
 	std::memcpy(buffer + byte_offset, message.body(), message.body_length());
 
