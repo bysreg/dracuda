@@ -23,8 +23,11 @@
 #include <string>
 #include <climits>
 #include <vector>
+#include <cstdlib>
 
 using namespace std;
+
+class RaytracerApplication;
 
 unsigned char *cudaBuffer;
 unsigned char* buffer = 0;
@@ -40,6 +43,8 @@ static unsigned int cur_frame_number = 0;
 static int buffer_frame_height = 0;
 static bool send_scene_status = false; // can we send scene data to slave?
 static SlaveInfo slaves_info[100] = {};
+static bool app_started = false;
+static RaytracerApplication* s_app = nullptr;
 
 void on_master_connection_started(Connection& conn);
 void on_master_receive_message(int conn_idx, const Message& message);
@@ -51,7 +56,13 @@ struct Options
 {
 	bool master = false;
 	bool slave = false;
-	std::string host; // host to connect from slave
+
+	// for master:
+	int min_slave_to_start = 0;
+
+	// for slave:
+	// host to connect from slave
+	std::string host;
 };
 
 class RaytracerApplication : public Application
@@ -197,6 +208,10 @@ void assign_work()
 
 void RaytracerApplication::update( float delta_time )
 {
+	// don't update until we are ready to start 
+	if(!app_started)
+		return;
+
 	cur_frame_number = (cur_frame_number + 1) % UINT_MAX;
 	camera_control.update(delta_time);
 	if (options.master) {
@@ -264,9 +279,14 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
     {
     	if(strcmp(argv[i] + 1, "master") == 0) {    		
     		opt->master = true;
+
+    		// we assume the next parameter for master
+    		// is the minimum slave required to begin application
+    		opt->min_slave_to_start = std::atoi(argv[i + 1]);
+
     		continue;
     	}
-    	if(strcmp(argv[i] + 1, "slave") == 0) {
+    	else if(strcmp(argv[i] + 1, "slave") == 0) {
     		// slave needs host address
     		if(i+1 > argc-1) {
     			std::cout<<"slave needs host address"<<std::endl;
@@ -285,7 +305,15 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
 using namespace std;
 
 void on_master_connection_started(Connection& conn)
-{}
+{
+	int n = master->get_connections_count();
+
+	if(n >= s_app->options.min_slave_to_start) {
+		// minimum slave count is reached, now
+		// we can start running the application
+		app_started = true;		
+	}
+}
 
 void on_master_receive_message(int conn_idx, const Message& message)
 {
@@ -339,6 +367,7 @@ int main( int argc, char* argv[] )
 	}
 
 	RaytracerApplication app( opt );
+	s_app = &app;
 	cout << "master:slave => " << opt.master << ":" << opt.slave << endl;
 
 	float fps = 20.0;
