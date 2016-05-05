@@ -1,10 +1,11 @@
 find_package(CUDA)
 
 if(NOT WIN32)
-	list(APPEND CUDA_NVCC_FLAGS "-std=c++11;-O2")
+	list(APPEND CUDA_NVCC_FLAGS "-O2")
 else()
-	list(APPEND CUDA_NVCC_FLAGS "-std=c++11;")
+	list(APPEND CUDA_NVCC_FLAGS "")
 endif()
+set(CUDA_PROPAGATE_HOST_FLAGS OFF)
 
 CUDA_ADD_EXECUTABLE(p3 base64.cpp application.cpp camera_roam.cpp PoolScene.cpp imageio.cpp main.cpp raytracer_cuda.cu master.cpp master.hpp slave.hpp slave.cpp constants.cpp)
 

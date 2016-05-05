@@ -49,8 +49,8 @@ void on_slave_receive_message(const Message& message);
 
 struct Options
 {
-	bool master = false;
-	bool slave = false;
+	bool master;
+	bool slave;
 	std::string host; // host to connect from slave
 };
 
@@ -70,7 +70,7 @@ public:
     virtual void update( float );
     virtual void render();
     virtual void handle_event( const SDL_Event& event );
-	float time = 0;
+	float time;
 
 	void do_gpu_raytracing();
 
@@ -109,6 +109,7 @@ int LoadEnvmap(cudaArray **array, const char *filename) {
 
 bool RaytracerApplication::initialize()
 {
+	time = 0;
 	poolScene.initialize();
 	poolScene.camera.position = Vector3(0, 25, 0);
 	poolScene.camera.orientation = Quaternion (0.717, -0.717, 0, 0);
@@ -326,6 +327,8 @@ void on_slave_receive_message(const Message& message)
 int main( int argc, char* argv[] )
 {
 	Options opt;
+	opt.master = false;
+	opt.slave = false;
 	int ret = 0;
 
 	if ( !parse_args( &opt, argc, argv ) ) {

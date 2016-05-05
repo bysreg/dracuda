@@ -19,7 +19,7 @@ struct Ball {
 struct PoolScene {
 	Ball balls[SPHERES];
 	Camera camera;
-	float time = 0;
+	float time;
 	void initialize();
 	void update(float delta_time);
 	void toDataBuffer(float *buffer);

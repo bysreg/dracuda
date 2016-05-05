@@ -15,6 +15,7 @@ int times[SPHERES];
 
 void PoolScene::initialize()
 {
+	time = 0;
 	for (size_t i = 0; i < SPHERES; i++) {
 		balls[i].position = ball_initial_positions[i];
 		balls[i].orientation = Quaternion::Identity();
