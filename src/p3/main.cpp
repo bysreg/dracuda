@@ -359,12 +359,20 @@ void on_master_receive_message(int conn_idx, const Message& message)
 	// we receive the image from slave-i	
 	int byte_offset = slaves_info[conn_idx].y0 * WIDTH * 4;
 
+	// grab the rendering time from the front of the message
+	std::memcpy(&slaves_info[conn_idx].rendering_latency, message.body(), sizeof(double));
+
+	// network latency is response_duration - rendering_latency
+	slaves_info[conn_idx].network_latency = slaves_info[conn_idx].response_duration - slaves_info[conn_idx].rendering_latency;
+
 	std::cout<<"receive piece of image from " 
 		<< conn_idx << " " << slaves_info[conn_idx].y0 << " "
-		<< (message.body_length() / 4 / WIDTH) << " "
-		<< slaves_info[conn_idx].response_duration << std::endl;
+		<< ((message.body_length() - slave_buffer_img_offset) / 4 / WIDTH) << " "
+		<< slaves_info[conn_idx].response_duration << " " 
+		<< slaves_info[conn_idx].network_latency  << " " 
+		<< slaves_info[conn_idx].rendering_latency << std::endl;
 
-	std::memcpy(buffer + byte_offset, message.body(), message.body_length());
+	std::memcpy(buffer + byte_offset + slave_buffer_img_offset, message.body(), message.body_length());
 
 	// we could only send the next scene data to slave
 	// only if we have all the image pieces from the slaves
@@ -396,8 +404,11 @@ void on_slave_receive_message(const Message& message)
 	double rendering_latency = CycleTimer::currentSeconds() 
 		- rendering_start;
 
+	// put the rendering time in front of the buffer
+	std::memcpy(buffer, &rendering_latency, sizeof(rendering_latency));
+
 	//std::string encoded_str = base64_encode(buffer, 4 * WIDTH * HEIGHT);
-	slave->send(buffer + slave_buffer_img_offset, WIDTH * (height) * 4);	
+	slave->send(buffer, WIDTH * (height) * 4 + sizeof(rendering_latency));	
 	//slave->send(encoded_str);
 }
 
