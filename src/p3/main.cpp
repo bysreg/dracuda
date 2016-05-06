@@ -289,7 +289,7 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
         switch ( event.key.keysym.sym )
         {
 		case KEY_RAYTRACE_GPU:
-			//do_gpu_raytracing();
+			poolScene.balls[0].velocity += Vector3(0.0, 0.0, -5.0);
 			break;
         default:
             break;

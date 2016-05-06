@@ -56,6 +56,49 @@ __device__ float sphereIntersectionTest(float3 ray_d, float3 ray_e)
 		}
 		return -1;
 }
+
+__device__ float sphereShadowTest(float3 ray_d, float3 ray_e)
+{
+	float res = 1.0;
+	float b = -dot(ray_e, ray_d);
+	if (b < 0.0) {
+		res = 1.0;
+	} else {
+		float h = sqrt(dot(ray_e, ray_e) - b * b) - 1;
+		res = clamp(16.0f * h / b, 0.0f, 1.0f);
+	}
+	return res;
+}
+
+__device__ float planeIntersectionTestX(float3 ray_d, float3 ray_e, int geom)
+{
+	float t = (cuConstants.positions[geom] - ray_e.x) / ray_d.x;
+	float3 hit = t * ray_d + ray_e;
+	float3 vec = (hit - cuConstants.lower_bounds[geom]) * (hit - cuConstants.upper_bounds[geom]);
+	if (vec.y > 0 || vec.z > 0)
+		t = -1;
+	return t;
+}
+
+__device__ float planeIntersectionTestY(float3 ray_d, float3 ray_e, int geom)
+{
+	float t = (cuConstants.positions[geom] - ray_e.y) / ray_d.y;
+	float3 hit = t * ray_d + ray_e;
+	float3 vec = (hit - cuConstants.lower_bounds[geom]) * (hit - cuConstants.upper_bounds[geom]);
+	if (vec.x > 0 || vec.z > 0)
+		t = -1;
+	return t;
+}
+__device__ float planeIntersectionTestZ(float3 ray_d, float3 ray_e, int geom)
+{
+	float t = (cuConstants.positions[geom] - ray_e.z) / ray_d.z;
+	float3 hit = t * ray_d + ray_e;
+	float3 vec = (hit - cuConstants.lower_bounds[geom]) * (hit - cuConstants.upper_bounds[geom]);
+	if (vec.x > 0 || vec.y > 0)
+		t = -1;
+	return t;
+}
+
 __device__ float3 doEnvironment( float3 rd )
 {
 	float r = 1 / 3.1415926 * acos(rd.z) / sqrt(rd.x * rd.x + rd.y * rd.y);
@@ -98,6 +141,23 @@ __device__ float sign(float x)
 	else
 		return -1.0;
 }
+
+
+__device__ float trace_shadow(float3 ray_e, float3 ray_d)
+{
+	// Spheres Itest
+	float res = 1.0, t = 0.0;
+	float3 *pos_ptr = (float3 *)(cuScene.data + 4 * SPHERES);
+	for (int i = 0; i < SPHERES; i++) {
+		float3 t_ray_d = ray_d;
+		float3 t_ray_e = ray_e - pos_ptr[i];
+		// Intersection test
+		t = sphereShadowTest(t_ray_d, t_ray_e);
+		res = min(t, res);
+	}
+	return res;
+}
+
 __device__ float3 do_material (int geom, float3 diffuse, float3 normal, float3 pos)
 {
 	float3 mate = diffuse;
@@ -143,6 +203,53 @@ __device__ float3 do_material (int geom, float3 diffuse, float3 normal, float3 p
 			k2 = circle2(xz, make_float2(0.0, -0.11), 0.12, 0.045, PI, 2.9);
 			d1 = distanceToSegment(make_float2(-0.12, -0.12), make_float2(-0.12, 0.1), xz);
 			break;
+		case 7:
+			d1 = distanceToSegment(make_float2(0.1, -0.22), make_float2(-0.03, 0.22), xz);
+			d2 = distanceToSegment(make_float2(-0.1, -0.22), make_float2(0.1, -0.22), xz);
+			break;
+		case 8:
+			k1 = circle2(xz, make_float2(0.0, -0.11), 0.1, 0.045, 0.0, PI * 2.0);
+			k2 = circle2(xz, make_float2(0.0, 0.12), 0.12, 0.045, 0.0, PI * 2.0);
+			break;
+		case 9:
+			k1 = circle2(xz, make_float2(0.0, -0.105), 0.12, 0.045, 0.0, PI * 2.0);
+			k2 = circle2(xz, make_float2(0.0, 0.105), 0.12, 0.045, 3.03 - PI, 2.6);
+			d1 = distanceToSegment(make_float2(0.12, -0.12), make_float2(0.12, 0.1), xz);
+			break;
+		case 10:
+			d1 = distanceToSegment(make_float2(-0.16, 0.22), make_float2(-0.16, -0.22), xz);
+			d2 = distanceToSegment(make_float2(-0.02, 0.12), make_float2(-0.02, -0.12), xz);
+			d3 = distanceToSegment(make_float2(0.221, 0.12), make_float2(0.221, -0.12), xz);
+			k1 = circle2(xz, make_float2(0.1, -0.105), 0.12, 0.045, PI, PI);
+			k2 = circle2(xz, make_float2(0.1, 0.105), 0.12, 0.045, 0.0, PI);
+			break;
+		case 11:
+			d1 = distanceToSegment(make_float2(0.12, 0.22), make_float2(0.12, -0.22), xz);
+			d2 = distanceToSegment(make_float2(-0.12, 0.22), make_float2(-0.12, -0.22), xz);
+			break;
+		case 12:
+			d3 = distanceToSegment(make_float2(-0.16, 0.22), make_float2(-0.16, -0.19), xz);
+			d1 = distanceToSegment(make_float2(0.0, 0.22), make_float2(0.175, 0.0), xz);
+			d2 = distanceToSegment(make_float2(0.0, 0.22), make_float2(0.2, 0.22), xz);
+			k1 = circle2(xz, make_float2(0.1, -0.08), 0.107, 0.045, PI, PI + 0.62);
+			break;
+		case 13:
+			d3 = distanceToSegment(make_float2(-0.16, 0.21), make_float2(-0.16, -0.21), xz);
+			k1 = circle2(xz, make_float2(0.1, -0.105), 0.107, 0.045, 0.5 - PI, PI + 1.0);
+			k2 = circle2(xz, make_float2(0.1, 0.105), 0.107, 0.045, -1.5, PI + 1.0);
+			break;
+		case 14:
+			d4 = distanceToSegment(make_float2(-0.16, 0.22), make_float2(-0.16, -0.22), xz);
+			d1 = distanceToSegment(make_float2(0.15, -0.22), make_float2(0.15, 0.22), xz);
+			d2 = distanceToSegment(make_float2(0.15, -0.22), make_float2(-0.05, 0.07), xz);
+			d3 = distanceToSegment(make_float2(-0.05, 0.07), make_float2(0.19, 0.07), xz);
+			break;
+		case 15:
+			d3 = distanceToSegment(make_float2(-0.16, 0.22), make_float2(-0.16, -0.22), xz);
+			d1 = distanceToSegment(make_float2(0.01, -0.22), make_float2(0.01, 0.0), xz);
+			d2 = distanceToSegment(make_float2(0.01, -0.22), make_float2(0.21, -0.22), xz);
+			k1 = circle2(xz, make_float2(0.1, 0.1), 0.13, 0.045, -2.0, PI + 1.3);
+			break;
 		default:
 			break;
 	}
@@ -151,6 +258,7 @@ __device__ float3 do_material (int geom, float3 diffuse, float3 normal, float3 p
 	mate *= smoothstep(0.04, 0.045, d) * smoothstep(0.88, 1.0, k);
 	return mate;
 }
+
 
 #define NSAMPLES 10
 #define SHADOW_RAYS 5
@@ -163,6 +271,10 @@ void curandSetupKernel()
 	int w = y * WIDTH + x;
 	curand_init(1578, w, 0, cuConstants.curand + w);
 }
+		/*
+		float di = (x + (sampleX + 0.5) / NSAMPLES) / WIDTH * 2 - 1;
+		float dj = (y + (sampleY + 0.5) / NSAMPLES) / HEIGHT * 2 - 1;
+		*/
 __global__
 void cudaRayTraceKernel (unsigned char *img, int y_start)
 {
@@ -173,11 +285,6 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 	if(w >= WIDTH * HEIGHT)
 		return;
 
-	__shared__ float mem[400];
-	int w2 = threadIdx.y * blockDim.x + threadIdx.x;
-	if (w2 < 7 * SPHERES)
-		mem[w2] = cuScene.data[w2];
-	__syncthreads();
 	curandState *curand = cuConstants.curand + w;
 
 	float3 *pos_ptr = (float3 *)(cuScene.data + 4 * SPHERES);
@@ -196,13 +303,8 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 
 	for (int sampleX = 0; sampleX < NSAMPLES; sampleX++)
 	for (int sampleY = 0; sampleY < NSAMPLES; sampleY++) {
-
-				/*
-		float di = (x + (sampleX + curand_uniform(cuScene.curand + w)) / NSAMPLES) / cuScene.width * 2 - 1;
-		float dj = (y + (sampleY + curand_uniform(cuScene.curand + w)) / NSAMPLES) / cuScene.height * 2 - 1;
-		*/
-		float di = (x + (sampleX + 0.5) / NSAMPLES) / WIDTH * 2 - 1;
-		float dj = (y + (sampleY + 0.5) / NSAMPLES) / HEIGHT * 2 - 1;
+		float di = (x + (sampleX + curand_uniform(curand)) / NSAMPLES) / WIDTH * 2 - 1;
+		float dj = (y + (sampleY + curand_uniform(curand)) / NSAMPLES) / HEIGHT * 2 - 1;
 		float3 ray_d = normalize(dir + dist * (dj * cU + di * AR * cR));
 		float3 ray_e = *((float3 *) cuScene.cam_position);
 
@@ -223,94 +325,81 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 			}
 		}
 
-		for (int i = 0; i < PLANES; i++) {
-			int axes = cuConstants.plane_axes[i];
-			float c;
-			if(axes == 0)
-				c = ray_e.x;
-			else if (axes == 1)
-				c = ray_e.y;
-			else
-				c = ray_e.z;
-			
-			float d;
-			if(axes == 0)
-				d = ray_d.x;
-			else if (axes == 1)
-				d = ray_d.y;
-			else
-				d = ray_d.z;
-			
-			float t = (cuConstants.positions[i] - c) / d;
-			if (t > EPS && t < tmin) {
-				float3 hit = t * ray_d + ray_e;
-				float3 vec = (hit - cuConstants.lower_bounds[i]) * (hit - cuConstants.upper_bounds[i]);
-				if (vec.x < 0 && vec.y < 0 && vec.z < 0) {
-					IsSpheres = false;
-					tmin = t;
-					geom = i;
-				}
-			}
-		}
+		float t;
+		// Planes Itest
+		t = planeIntersectionTestY(ray_d, ray_e, 0);
+		if (t > EPS && t < tmin) { IsSpheres = false; tmin = t; geom = 0; }
+		t = planeIntersectionTestY(ray_d, ray_e, 1);
+		if (t > EPS && t < tmin) { IsSpheres = false; tmin = t; geom = 1; }
+		t = planeIntersectionTestY(ray_d, ray_e, 2);
+		if (t > EPS && t < tmin) { IsSpheres = false; tmin = t; geom = 2; }
+		t = planeIntersectionTestY(ray_d, ray_e, 3);
+		if (t > EPS && t < tmin) { IsSpheres = false; tmin = t; geom = 3; }
+		t = planeIntersectionTestY(ray_d, ray_e, 4);
+		if (t > EPS && t < tmin) { IsSpheres = false; tmin = t; geom = 4; }
+		t = planeIntersectionTestX(ray_d, ray_e, 5);
+		if (t > EPS && t < tmin) { IsSpheres = false; tmin = t; geom = 5; }
+		t = planeIntersectionTestX(ray_d, ray_e, 6);
+		if (t > EPS && t < tmin) { IsSpheres = false; tmin = t; geom = 6; }
+		t = planeIntersectionTestZ(ray_d, ray_e, 7);
+		if (t > EPS && t < tmin) { IsSpheres = false; tmin = t; geom = 7; }
+		t = planeIntersectionTestZ(ray_d, ray_e, 8);
+		if (t > EPS && t < tmin) { IsSpheres = false; tmin = t; geom = 8; }
+
 		tmin -= 0.001;
 		float3 color = make_float3(0, 0, 0);
 
 		if (geom >= 0) {
+			float3 hit = tmin * ray_d + ray_e;
+			// Normal
+			float3 normal;
 			if (IsSpheres) {
-				float3 hit = tmin * ray_d + ray_e;
-				float3 orig_hit = quaternionXvector(quaternionConjugate(rot_ptr[geom]), hit - pos_ptr[geom]);
-				float3 normal;
 				normal = normalize(hit - pos_ptr[geom]);
+			} else {
+				normal = cuConstants.normals[geom];
+			}
+			// Shadow Factor
+			float shadow_factor = 0.0;
+			for (int i = 0; i < SHADOW_RAYS; i++) {
+				float3 sdir, tdir;
+				float u = curand_uniform(curand);
+				float phi = 2 * 3.1415926535 * curand_uniform(curand);
+				if (abs(normal.x) < 0.5) {
+					sdir = cross(normal, make_float3(1, 0, 0));
+				} else {
+					sdir = cross(normal, make_float3(0, 1, 0));
+				}
+				tdir = cross(normal, sdir);
+				float3 light_dir = sqrt(u) * (cos(phi) * sdir + sin(phi) * tdir) + sqrt(1 - u) * normal;
+				shadow_factor += trace_shadow(hit, light_dir);
+			}
+			shadow_factor /= (SHADOW_RAYS + 0.0);
+			if (IsSpheres) {
+				float3 orig_hit = quaternionXvector(quaternionConjugate(rot_ptr[geom]), hit - pos_ptr[geom]);
 				float3 diffuse = cuConstants.sphere_colors[geom];
 
 				// Direct diffuse
 				float3 surface_color = make_float3(0, 0, 0);
-				for (int i = 0; i < SHADOW_RAYS; i++) {
-					float3 sdir, tdir;
-					float u = curand_uniform(curand);
-					float phi = 2 * 3.1415926535 * curand_uniform(curand);
-					if (abs(normal.x) < 0.5) {
-						sdir = cross(normal, make_float3(1, 0, 0));
-					} else {
-						sdir = cross(normal, make_float3(0, 1, 0));
-					}
-					tdir = cross(normal, sdir);
-					float3 light_dir = sqrt(u) * (cos(phi) * sdir + sin(phi) * tdir) + sqrt(1 - u) * normal;
-					float shadow_factor = 1;//trace_shadow(hit, light_dir, 10000.0);
-					surface_color += shadow_factor;
-				}
-				surface_color *= 1 / (SHADOW_RAYS + 0.0) * 2.9;
+				surface_color += shadow_factor * 2.9;
 
 				float3 m = do_material(geom, diffuse, normal, orig_hit);
+				// Bounce
 				surface_color += 1.5f * clamp(0.3f-0.7f*normal.y,0.0f,1.0f)*make_float3(0.0,0.2,0.0);
-				// Rim
-				if (geom <= 3)
-				surface_color *= 1.0 + 6.0 * m* powf( clamp( 1.0 + dot(normal, ray_d), 0.0f, 1.0f ), 2.0 );
-
+				// Specular
 				float fre = 0.04 + 4 * powf(clamp( 1.0 + dot(normal, ray_d), 0.0f, 1.0f ), 5.0f) ;
 				float step = 0.0;
 				float3 ref = normalize(ray_d - 2 * normal * dot(normal, ray_d));
 				if (ref.y > 0)
 					step = 1.0;
-
 				//if (geom <= 3)
-					surface_color += 1.0 * fre * step * doEnvironment(ref);
+					surface_color += 1.0 * fre * step;// * doEnvironment(ref);
 				color += surface_color * m;
 				accumulated_color += color;
 			} else {
-				accumulated_color += make_float3(0.0, 1.0, 0.0);
-				/*
-				float3 hit = tmin * ray_d + ray_e;
-				if (hit.x > -1 && hit.x < 1 && hit.z > -1 && hit.z < 1) {
-					float4 c = tex2D(envmap, hit.x, hit.z);
-					accumulated_color += make_float3(c.x, c.y, c.z);
-				}
-				*/
-
+				accumulated_color += cuConstants.plane_colors[geom] * shadow_factor;
 			}
 		} else {
-			accumulated_color += doEnvironment(ray_d) / 5.0;
-			//break;
+			accumulated_color += make_float3(0.7, 0.9, 1.0);
 		}
 	}
 	
@@ -355,23 +444,9 @@ void cudaRayTrace(CudaScene *scene, unsigned char *img)
 			printf( "Error: %d\n", error );
 }
 
+				// Rim
+				/*
+				if (geom <= 3)
+				surface_color *= 1.0 + 6.0 * m* powf( clamp( 1.0 + dot(normal, ray_d), 0.0f, 1.0f ), 2.0 );
+				*/
 
-/*
-__device__ float trace_shadow(float3 ray_e, float3 ray_d, float time)
-{
-	float3 *pos_ptr = (float3 *)cuScene.position;
-	float4 *rot_ptr = (float4 *)cuScene.rotation;
-	for (int i = 0; i < cuScene.N; i++) {
-		float3 t_ray_d = ray_d;
-		float3 t_ray_e = ray_e - pos_ptr[i];
-		t_ray_d = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_d);
-		t_ray_e = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_e);
-		// Intersection test
-		float t = sphereIntersectionTest(1, t_ray_d, t_ray_e, i);
-		if (t > EPS && t < time) {
-			return 0;
-		}
-	}
-	return 1;
-}
-*/

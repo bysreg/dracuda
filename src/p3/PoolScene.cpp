@@ -5,7 +5,7 @@
 #define L 1.7320508
 
 Vector3 ball_initial_positions[SPHERES] = {
-	Vector3(0.0, 1.0, 2.0),
+	Vector3(0.0, 1.0, 5.0),
 	Vector3(-2.0, 1.0, -2.0 * L),
 	Vector3(2.0, 1.0, -4.0 * L),
 	Vector3(-1.0, 1.0, -3.0 * L),
@@ -34,7 +34,7 @@ void PoolScene::initialize()
 		balls[i].position = ball_initial_positions[i];
 		balls[i].orientation = Quaternion::Identity();
 	}
-	balls[2].velocity = Vector3(3.9, 0, -3.80);
+	//balls[2].velocity = Vector3(3.9, 0, -3.80);
 	camera.fov = 0.785;
 	camera.aspect = (WIDTH + 0.0) / (HEIGHT + 0.0);
 	camera.near_clip = 0.01;
