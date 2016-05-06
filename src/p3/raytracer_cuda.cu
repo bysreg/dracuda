@@ -6,6 +6,7 @@
 #include <curand_kernel.h>
 #include "cycleTimer.h"
 #include "constants.hpp"
+#define PI 3.1415926535
 
 #define EPS 0.0001
 
@@ -68,27 +69,6 @@ __device__ float3 doEnvironment( float3 rd )
 	return 24 * make_float3(powf(color.x, 2.2), powf(color.y, 2.2), powf(color.z, 2.2));
 }
 
-
-/*
-__device__ float trace_shadow(float3 ray_e, float3 ray_d, float time)
-{
-	float3 *pos_ptr = (float3 *)cuScene.position;
-	float4 *rot_ptr = (float4 *)cuScene.rotation;
-	for (int i = 0; i < cuScene.N; i++) {
-		float3 t_ray_d = ray_d;
-		float3 t_ray_e = ray_e - pos_ptr[i];
-		t_ray_d = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_d);
-		t_ray_e = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_e);
-		// Intersection test
-		float t = sphereIntersectionTest(1, t_ray_d, t_ray_e, i);
-		if (t > EPS && t < time) {
-			return 0;
-		}
-	}
-	return 1;
-}
-*/
-
 __device__ float distanceToSegment( float2 a, float2 b, float2 p )
 {
 		float2 pa = p - a;
@@ -98,6 +78,19 @@ __device__ float distanceToSegment( float2 a, float2 b, float2 p )
 					return length( pa - ba*h );
 }
 
+__device__ float circle2(float2 pos, float2 center, float radius, float dist, float begin, float interval)
+{
+	float2 diff = pos - center;
+	float angle = atan2(diff.y, diff.x) - begin;
+	if (angle < 0.0)
+		angle = angle + 2.0 * PI;
+	float d = sqrt(dot(diff, diff));
+	float k = abs(d - radius) / dist;
+	if (angle > interval)
+		k = 1.0;
+	return k;
+}
+	
 __device__ float sign(float x)
 {
 	if (x > 0.0)
@@ -114,55 +107,48 @@ __device__ float3 do_material (int geom, float3 diffuse, float3 normal, float3 p
 	} else {
 		mate = lerp(diffuse, cue_color, smoothstep(0.9, 0.91, abs(pos.y)) + smoothstep(0.55, 0.56, abs(pos.z)));
 	}
+	float d1 = 1.0, d2 = 1.0, d3 = 1.0, d4 = 1.0, k1 = 1.0, k2 = 1.0;
+	float d, k;
+	float2 xz;
+	if (pos.y > 0) { 
+		xz = make_float2(pos.x, pos.z);
+	} else {
+		xz = make_float2(-pos.x, pos.z);
+	}
 	switch(geom) {
 		case 1:
-			float d = distanceToSegment( make_float2(0.0,0.22), make_float2(0.0,-0.22), make_float2(pos.x, pos.z) );
-			mate *= smoothstep( 0.04, 0.05, d );
+			d1 = distanceToSegment( make_float2(0.0,0.22), make_float2(0.0,-0.22), xz);
 			break;
 		case 2:
-			float d0 = distanceToSegment( make_float2(0.0,0.22), make_float2(0.0,-0.22), make_float2(pos.x, pos.z) );
+			d1 = distanceToSegment(make_float2(-0.1, 0.22), make_float2(0.075, 0.0), xz);
+			d2 = distanceToSegment(make_float2(-0.1, 0.22), make_float2(0.1, 0.22), xz);
+			k1 = circle2(xz, make_float2(0.0, -0.08), 0.107, 0.045, PI, PI + 0.62);
+			break;
+		case 3:
+			k1 = circle2(xz, make_float2(0.0, -0.105), 0.107, 0.045, 0.5 - PI, PI + 1.0);
+			k2 = circle2(xz, make_float2(0.0, 0.105), 0.107, 0.045, -1.5, PI + 1.0);
+			break;
+		case 4:
+			d1 = distanceToSegment(make_float2(0.0, -0.22), make_float2(0.0, 0.22), xz);
+			d2 = distanceToSegment(make_float2(0.0, -0.22), make_float2(-0.2, 0.07), xz);
+			d3 = distanceToSegment(make_float2(-0.2, 0.07), make_float2(0.04, 0.07), xz);
+			break;
+		case 5:
+			d1 = distanceToSegment(make_float2(-0.09, -0.22), make_float2(-0.09, 0.0), xz);
+			d2 = distanceToSegment(make_float2(-0.09, -0.22), make_float2(0.11, -0.22), xz);
+			k1 = circle2(xz, make_float2(0.0, 0.1), 0.13, 0.045, -2.1, PI + 1.4);
+			break;
+		case 6:
+			k1 = circle2(xz, make_float2(0.0, 0.11), 0.12, 0.045, 0.0, PI * 2.0);
+			k2 = circle2(xz, make_float2(0.0, -0.11), 0.12, 0.045, PI, 2.9);
+			d1 = distanceToSegment(make_float2(-0.12, -0.12), make_float2(-0.12, 0.1), xz);
+			break;
 		default:
 			break;
 	}
-
-	/*
-	// Cue
-	if( geom == 3) {
-		mate = make_float3(0.30,0.25,0.20)*1.25; }
-	// Blue
-	if( geom == 2) {
-		mate = make_float3(0.00,0.10,0.20)*1.25; 
-		mate = lerp( mate, make_float3(0.29, 0.27, 0.25 ), smoothstep( 0.9, 0.91, abs(pos.z) ) ); 
-		float d = distanceToSegment( make_float2(0.22,0.0), make_float2(-0.22,0.0), make_float2(pos.y, pos.x) );
-		mate *= smoothstep( 0.04, 0.05, d );
-	}
-	// Yellow 11
-	if (geom == 1) {
-		mate *= 1.25;
-		mate = lerp( mate, cue_color, smoothstep( 0.9, 0.91, abs(pos.x) ) ); 
-		float d1 = distanceToSegment( make_float2(0.22,0.12), make_float2(-0.22,0.12), make_float2(pos.y, pos.z) );
-		float d2 = distanceToSegment( make_float2(0.22,-0.12), make_float2(-0.22,-0.12), make_float2(pos.y, pos.z) );
-		float d = min( d1, d2 );
-		mate *= smoothstep( 0.04, 0.05, d );
-	}
-	if (geom == 0) {
-		mate *= 1.25;
-		float2 yz = make_float2(pos.y, pos.z);
-		mate = lerp( mate, cue_color, smoothstep( 0.9, 0.91, abs(pos.x) ) + smoothstep( 0.55, 0.56, abs(pos.y) ) ); 
-		float d1 = distanceToSegment( make_float2(0.22,0.0), make_float2(-0.22,0.0), yz );
-		float d2 = distanceToSegment( make_float2(0.22,0.0), make_float2( -0.07,-0.2), yz*make_float2(1.0,-sign(pos.x)) );
-		float d3 = distanceToSegment( make_float2(-0.07,-0.2), make_float2(-0.07,0.04), yz*make_float2(1.0,-sign(pos.x)) );
-		float d = min(d1,min(d2,d3));
-		mate *= smoothstep( 0.04, 0.05, d );
-	}
-	if (geom > 3) {
-		mate *= 1.25;
-		int x = blockIdx.x * blockDim.x + threadIdx.x;
-		int y = blockIdx.y * blockDim.y + threadIdx.y;
-		int w = y * cuScene.width + x;
-		//mate *= 0.78 + 0.22 * curand_uniform(cuScene.curand + w);
-	}
-	*/
+	d = min(min(d1, d4), min(d2, d3));
+	k = min(k1, k2);
+	mate *= smoothstep(0.04, 0.045, d) * smoothstep(0.88, 1.0, k);
 	return mate;
 }
 
@@ -307,7 +293,7 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 				if (ref.y > 0)
 					step = 1.0;
 
-				if (geom <= 3)
+				//if (geom <= 3)
 					surface_color += 1.0 * fre * step * doEnvironment(ref);
 				color += surface_color * m;
 				accumulated_color += color;
@@ -323,7 +309,8 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 
 			}
 		} else {
-			break;
+			accumulated_color += doEnvironment(ray_d) / 5.0;
+			//break;
 		}
 	}
 	
@@ -361,9 +348,30 @@ void cudaRayTrace(CudaScene *scene, unsigned char *img)
 	double startTime = CycleTimer::currentSeconds();
 	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(img, scene->y0);
 	cudaDeviceSynchronize();
-	//printf("CUDA rendering time: %lf\n", CycleTimer::currentSeconds() - startTime);
+	printf("CUDA rendering time: %lf\n", CycleTimer::currentSeconds() - startTime);
 
 	cudaError_t error = cudaGetLastError();
 	if ( cudaSuccess != error )
 			printf( "Error: %d\n", error );
 }
+
+
+/*
+__device__ float trace_shadow(float3 ray_e, float3 ray_d, float time)
+{
+	float3 *pos_ptr = (float3 *)cuScene.position;
+	float4 *rot_ptr = (float4 *)cuScene.rotation;
+	for (int i = 0; i < cuScene.N; i++) {
+		float3 t_ray_d = ray_d;
+		float3 t_ray_e = ray_e - pos_ptr[i];
+		t_ray_d = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_d);
+		t_ray_e = quaternionXvector(quaternionConjugate(rot_ptr[i]), t_ray_e);
+		// Intersection test
+		float t = sphereIntersectionTest(1, t_ray_d, t_ray_e, i);
+		if (t > EPS && t < time) {
+			return 0;
+		}
+	}
+	return 1;
+}
+*/

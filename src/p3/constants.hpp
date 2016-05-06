@@ -10,8 +10,8 @@
 #define HEIGHT 576
 
 #define PLANES 1
-#define SPHERES 4
-#define SOLIDS 2
+#define SPHERES 16
+#define SOLIDS 9
 
 #define TABLE_WIDTH 15
 #define TABLE_HEIGHT 30

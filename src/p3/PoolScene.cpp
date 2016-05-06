@@ -2,11 +2,25 @@
 #include "cudaScene.hpp"
 #include "constants.hpp"
 
+#define L 1.7320508
+
 Vector3 ball_initial_positions[SPHERES] = {
-	Vector3(1.0, 1.0, 1.0),
-	Vector3(-4.0, 1.0, 0.0),
-	Vector3(0.0, 1.0, 3.0),
-	Vector3(5.0, 1.0, -2.0)
+	Vector3(0.0, 1.0, 2.0),
+	Vector3(-2.0, 1.0, -2.0 * L),
+	Vector3(2.0, 1.0, -4.0 * L),
+	Vector3(-1.0, 1.0, -3.0 * L),
+	Vector3(-2.0, 1.0, -4.0 * L),
+	Vector3(-4.0, 1.0, -4.0 * L),
+	Vector3(1.0, 1.0, -3.0 * L),
+	Vector3(1.0, 1.0, -1.0 * L),
+	Vector3(0.0, 1.0, -2.0 * L),
+	Vector3(0.0, 1.0, 0.0),
+	Vector3(3.0, 1.0, -3.0 * L),
+	Vector3(4.0, 1.0, -4.0 * L),
+	Vector3(-1.0, 1.0, -L),
+	Vector3(0.0, 1.0, -4.0 * L),
+	Vector3(-3.0, 1.0, -3.0 * L),
+	Vector3(2.0, 1.0, -2.0 * L)
 };
 
 Vector3 velocity_acc[SPHERES];

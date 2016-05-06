@@ -132,6 +132,10 @@ bool RaytracerApplication::initialize()
 	cudaScene.aspect = (WIDTH + 0.0) / (HEIGHT + 0.0);
 	cudaScene.near_clip = 0.01;
 	cudaScene.far_clip = 200.0;
+	if (!options.master && !options.slave) {
+		cudaScene.y0 = 0;
+		cudaScene.y1 = HEIGHT - 1;
+	}
 
 	cudaArray *cu_2darray;
 	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat );
@@ -209,8 +213,10 @@ void assign_work()
 void RaytracerApplication::update( float delta_time )
 {
 	// don't update until we are ready to start 
-	if(!app_started)
-		return;
+	if (options.slave || options.master) {
+		if(!app_started)
+			return;
+	}
 
 	cur_frame_number = (cur_frame_number + 1) % UINT_MAX;
 	camera_control.update(delta_time);
