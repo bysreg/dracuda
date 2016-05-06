@@ -1,10 +1,14 @@
 #pragma once
 
+// forward declarations
 class SlaveInfo;
+class RaytracerApplication;
 
 class LoadBalancer
 {
 	public:
+
+	static void calc(const RaytracerApplication* app, SlaveInfo* input, double* output, int size);
 
 	// receives input with varying numbers
 	// this function will populate the output 
@@ -15,7 +19,7 @@ class LoadBalancer
 
 	// no matter the input, will populate the output 
 	// with equal weight for all elements
-	static void calc_equal(SlaveInfo* input, double* output, int size);
+	static void calc_equal(SlaveInfo* input, double* output, int size);	
 
 	private:
 	LoadBalancer();	
