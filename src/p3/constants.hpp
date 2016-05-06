@@ -9,12 +9,12 @@
 #define WIDTH 768
 #define HEIGHT 576
 
-#define PLANES 1
+#define PLANES 9
 #define SPHERES 16
 #define SOLIDS 9
 
-#define TABLE_WIDTH 15
-#define TABLE_HEIGHT 30
+#define TABLE_WIDTH 10
+#define TABLE_HEIGHT 20
 #define TABLE_EDGE 2
 
 

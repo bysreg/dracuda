@@ -10,8 +10,8 @@
 #include "camera_roam.hpp"
 
 static const float DirectionTable[] = { 0.0, 1.0, -1.0 };
-static const float TranslationSpeed = 2.0;
-static const float RotationSpeed = 0.02;
+static const float TranslationSpeed = 5.0;
+static const float RotationSpeed = 0.05;
 
 CameraRoamControl::CameraRoamControl()
 {
