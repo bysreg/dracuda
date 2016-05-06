@@ -7,8 +7,8 @@ PoolConstants poolConstants;
 void initialize_constants()
 {
 	float3 mat_color = {0.0, 0.4, 0.0};
-	float3 edge_color = {0.2, 0.1, 0.1};
-	float3 leng_color = {0.1, 0.3, 0.1};
+	float3 edge_color = {0.13, 0.03, 0.02};
+	float3 leng_color = {0.01, 0.09, 0.01};
 	poolConstants.sphere_colors[0] = {0.29, 0.27, 0.25};
 	poolConstants.sphere_colors[1] = {0.20, 0.20, 0.00};
 	poolConstants.sphere_colors[2] = {0.00, 0.10, 0.20};

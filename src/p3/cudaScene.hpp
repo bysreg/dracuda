@@ -10,7 +10,8 @@
 struct CudaScene
 {
 	// Sphere position & orientation
-	float data[SPHERES * 7];
+	float4 ball_orientation[SPHERES];
+	float3 ball_position[SPHERES];
 
 	// Camera
 	float cam_position[3];

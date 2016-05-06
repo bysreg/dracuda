@@ -41,21 +41,15 @@ void PoolScene::initialize()
 	camera.far_clip = 200.0;
 }
 
-void PoolScene::toDataBuffer(float *buffer)
-{
-	for (int i = 0; i < SPHERES; i++) {
-		balls[i].position.to_array(buffer + 4 * SPHERES + 3 * i);
-		balls[i].orientation.to_array(buffer + 4 * i);
-	}
-}
-
 void PoolScene::toCudaScene(CudaScene &scene)
 {
 	camera.position.to_array(scene.cam_position); 
 	camera.orientation.to_array(scene.cam_orientation);
 	for (int i = 0; i < SPHERES; i++) {
-		balls[i].position.to_array(scene.data + 4 * SPHERES + 3 * i);
-		balls[i].orientation.to_array(scene.data + 4 * i);
+		Vector3 v = balls[i].position;
+		scene.ball_position[i] = make_float3(v.x, v.y, v.z);
+		Quaternion q = balls[i].orientation;
+		scene.ball_orientation[i] = make_float4(q.x, q.y, q.z, q.w);
 	}
 }
 
