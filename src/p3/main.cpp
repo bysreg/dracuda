@@ -40,6 +40,10 @@ CudaScene cudaScene;
 static Master* master;
 static Slave* slave;
 
+// offset for slave buffer
+// the first double is used to store the rendering latency
+static const int slave_buffer_img_offset = 0;
+
 // master's related variable
 static unsigned int cur_frame_number = 0;
 static int buffer_frame_height = 0;
@@ -128,7 +132,11 @@ bool RaytracerApplication::initialize()
 	poolScene.camera.orientation = Quaternion (0.717, -0.717, 0, 0);
 	camera_control.camera = &poolScene.camera;
 	if (!buffer) {
-		buffer = new unsigned char [WIDTH * HEIGHT * 4];
+		if(options.slave) {
+			buffer = new unsigned char [WIDTH * HEIGHT * 4 + slave_buffer_img_offset];
+		}else{
+			buffer = new unsigned char [WIDTH * HEIGHT * 4];
+		}		
 	}
 
 	cudaScene.fov = 0.785;
@@ -265,9 +273,6 @@ void RaytracerApplication::render()
     glMatrixMode( GL_MODELVIEW );
     glLoadIdentity();
 
-	if (!buffer) {
-		buffer = new unsigned char [WIDTH * HEIGHT * 4];
-	}
 	glColor4d( 1.0, 1.0, 1.0, 1.0 );
 	glRasterPos2f( -1.0f, -1.0f );
 	if (!options.slave)
@@ -376,14 +381,23 @@ void on_master_receive_message(int conn_idx, const Message& message)
 void on_slave_receive_message(const Message& message) 
 {
 	CudaScene cudaSceneCopy;
+
+	// calculate the rendering start time
+	double rendering_start = CycleTimer::currentSeconds();
+
 	std::memcpy(&cudaSceneCopy, message.body(), message.body_length());
 	cudaRayTrace(&cudaSceneCopy, cudaBuffer);
-	gpuErrchk(cudaMemcpy(buffer, cudaBuffer, 4 * WIDTH * HEIGHT, cudaMemcpyDeviceToHost));
 
-	//std::string encoded_str = base64_encode(buffer, 4 * WIDTH * HEIGHT);
 	int height = cudaSceneCopy.render_height;
 	int offset = cudaSceneCopy.y0 * WIDTH * 4;
-	slave->send(buffer + offset, WIDTH * (height) * 4);
+	gpuErrchk(cudaMemcpy(buffer + slave_buffer_img_offset, cudaBuffer + (cudaSceneCopy.y0 * WIDTH * 4), 4 * WIDTH * height, cudaMemcpyDeviceToHost));
+
+	// calculate the rendering latency
+	double rendering_latency = CycleTimer::currentSeconds() 
+		- rendering_start;
+
+	//std::string encoded_str = base64_encode(buffer, 4 * WIDTH * HEIGHT);
+	slave->send(buffer + slave_buffer_img_offset, WIDTH * (height) * 4);	
 	//slave->send(encoded_str);
 }
 
