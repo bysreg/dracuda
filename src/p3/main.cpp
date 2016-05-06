@@ -15,6 +15,7 @@
 #include "slave.hpp"
 #include "slave_info.hpp"
 #include "base64.h"
+#include "load_balancer.hpp"
 
 #include <SDL.h>
 #include <stdlib.h>
@@ -24,6 +25,7 @@
 #include <climits>
 #include <vector>
 #include <cstdlib>
+#include <cmath>
 
 using namespace std;
 
@@ -43,6 +45,7 @@ static unsigned int cur_frame_number = 0;
 static int buffer_frame_height = 0;
 static bool send_scene_status = false; // can we send scene data to slave?
 static SlaveInfo slaves_info[100] = {};
+static double slaves_weight[100] = {};
 static bool app_started = false;
 static RaytracerApplication* s_app = nullptr;
 
@@ -134,7 +137,7 @@ bool RaytracerApplication::initialize()
 	cudaScene.far_clip = 200.0;
 	if (!options.master && !options.slave) {
 		cudaScene.y0 = 0;
-		cudaScene.y1 = HEIGHT - 1;
+		cudaScene.render_height = HEIGHT;
 	}
 
 	cudaArray *cu_2darray;
@@ -180,33 +183,49 @@ Quaternion FromToRotation(Vector3 u, Vector3 v)
 	return normalize(q);
 }
 
+int distribute(double w, int total, double& amortized)
+{
+	double real, natural;
+	real = w * total + amortized;
+	natural = std::floor(real);
+	amortized = real - natural;
+
+	return natural;
+}
+
 void assign_work()
 {
 	int n = master->get_connections_count();
 
 	if(n == 0 || !send_scene_status)
 		return;
-
-	int height_per_slave = HEIGHT / n;
-	int rem = HEIGHT - height_per_slave*n;
-
+	
 	send_scene_status = false;
-	std::cout<< "sending to slave frame "<<(cur_frame_number + 1)<<std::endl;
-	for(int i=0;i<n;i++)
-	{
+	std::cout<<std::endl;
+
+	LoadBalancer::calc_equal(slaves_info, slaves_weight, n);
+	int sum_height = 0;	
+	double amortized = 0;
+	for(int i=0;i<n-1;i++)
+	{		
 		// always splitting equally for now
-		cudaScene.y0 = i*height_per_slave;
-		cudaScene.y1 = cudaScene.y0 + height_per_slave - 1;		
+		slaves_info[i].render_height = distribute(slaves_weight[i], HEIGHT, amortized);
+		sum_height += slaves_info[i].render_height;
+	}
+	slaves_info[n-1].render_height = HEIGHT - sum_height;
 
-		if(i==n-1)
-		{
-			cudaScene.y1 += rem;
-		}
-
-		slaves_info[i].y0 = cudaScene.y0;
+	int cur_y0 = 0;
+	for(int i=0;i<n;i++)
+	{		
+		slaves_info[i].y0 = cur_y0;
+		cudaScene.y0 = slaves_info[i].y0;
+		cudaScene.render_height = slaves_info[i].render_height;
 		slaves_info[i].send_time = CycleTimer::currentSeconds();
-
+		
+		//std::cout<< "sending to slave frame "<<(cur_frame_number + 1)<<" "<<slaves_info[i].y0<<" "<<slaves_info[i].render_height<<std::endl;
 		master->send(i, cudaScene);
+
+		cur_y0 += slaves_info[i].render_height;
 	}
 }
 
@@ -337,7 +356,7 @@ void on_master_receive_message(int conn_idx, const Message& message)
 
 	std::cout<<"receive piece of image from " 
 		<< conn_idx << " " << slaves_info[conn_idx].y0 << " "
-		<< message.body_length() << " "
+		<< (message.body_length() / 4 / WIDTH) << " "
 		<< slaves_info[conn_idx].response_duration << std::endl;
 
 	std::memcpy(buffer + byte_offset, message.body(), message.body_length());
@@ -362,7 +381,7 @@ void on_slave_receive_message(const Message& message)
 	gpuErrchk(cudaMemcpy(buffer, cudaBuffer, 4 * WIDTH * HEIGHT, cudaMemcpyDeviceToHost));
 
 	//std::string encoded_str = base64_encode(buffer, 4 * WIDTH * HEIGHT);
-	int height = cudaSceneCopy.y1 - cudaSceneCopy.y0 + 1;
+	int height = cudaSceneCopy.render_height;
 	int offset = cudaSceneCopy.y0 * WIDTH * 4;
 	slave->send(buffer + offset, WIDTH * (height) * 4);
 	//slave->send(encoded_str);
@@ -378,8 +397,6 @@ int main( int argc, char* argv[] )
 	if ( !parse_args( &opt, argc, argv ) ) {
 	    return 1;
 	}
-
-	std::cout<< "test" << std::endl;
 
 	RaytracerApplication app( opt );
 	s_app = &app;

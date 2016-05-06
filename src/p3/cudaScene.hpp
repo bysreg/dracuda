@@ -19,8 +19,9 @@ struct CudaScene
 	float aspect;
 	float near_clip;
 	float far_clip;
-	int y0;
-	int y1; // inclusive
+	
+	int y0; // render offset
+	int render_height;
 };
 
 #endif

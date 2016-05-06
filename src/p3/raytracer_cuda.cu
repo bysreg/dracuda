@@ -340,7 +340,7 @@ void cudaRayTrace(CudaScene *scene, unsigned char *img)
 	//printf("CudaRayTrace\n");
 	//printf("%p\n", scene);
 	gpuErrchk(cudaMemcpyToSymbol(cuScene, scene, sizeof(CudaScene)));
-	int height = scene->y1 - scene->y0 + 1;
+	int height = scene->render_height;
 
 	dim3 dimBlock(16, 16);
 	dim3 dimGrid(WIDTH / 16, (height + 16 - 1) / 16);
