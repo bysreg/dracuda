@@ -286,9 +286,14 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
     	if(strcmp(argv[i] + 1, "master") == 0) {    		
     		opt->master = true;
 
+    		if(i+1 > argc-1) {
+    			std::cout<<"master needs number of minimum connected slaves"<<std::endl;
+    			return false;
+    		}
+    		
     		// we assume the next parameter for master
     		// is the minimum slave required to begin application
-    		opt->min_slave_to_start = std::atoi(argv[i + 1]);
+    		opt->min_slave_to_start = std::atoi(argv[i + 1]);    		
 
     		continue;
     	}
@@ -373,6 +378,8 @@ int main( int argc, char* argv[] )
 	if ( !parse_args( &opt, argc, argv ) ) {
 	    return 1;
 	}
+
+	std::cout<< "test" << std::endl;
 
 	RaytracerApplication app( opt );
 	s_app = &app;
