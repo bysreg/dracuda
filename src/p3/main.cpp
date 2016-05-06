@@ -16,6 +16,8 @@
 #include "slave_info.hpp"
 #include "base64.h"
 #include "load_balancer.hpp"
+#include "raytracer_application.hpp"
+#include "options.hpp"
 
 #include <SDL.h>
 #include <stdlib.h>
@@ -29,10 +31,7 @@
 
 using namespace std;
 
-class RaytracerApplication;
-
 unsigned char *cudaBuffer;
-unsigned char* buffer = 0;
 
 PoolScene poolScene;
 CudaScene cudaScene;
@@ -45,7 +44,6 @@ static Slave* slave;
 static const int slave_buffer_img_offset = 0;
 
 // master's related variable
-static unsigned int cur_frame_number = 0;
 static int buffer_frame_height = 0;
 static bool send_scene_status = false; // can we send scene data to slave?
 static SlaveInfo slaves_info[100] = {};
@@ -58,43 +56,6 @@ void on_master_receive_message(int conn_idx, const Message& message);
 void on_slave_receive_message(const Message& message);
 
 #define KEY_RAYTRACE_GPU SDLK_g
-
-struct Options
-{
-	bool master;
-	bool slave;
-	// for master:
-	int min_slave_to_start = 0;
-
-	// for slave:
-	// host to connect from slave
-	std::string host;
-};
-
-class RaytracerApplication : public Application
-{
-public:
-    RaytracerApplication( const Options& opt )
-        : options( opt ){}
-
-    virtual ~RaytracerApplication() {
-		if (buffer)
-			free( buffer );
-	}
-
-    virtual bool initialize();
-    virtual void destroy();
-    virtual void update( float );
-    virtual void render();
-    virtual void handle_event( const SDL_Event& event );
-	float time;
-
-	void do_gpu_raytracing();
-
-    Options options;
-    CameraRoamControl camera_control;
-
-};
 
 int LoadEnvmap(cudaArray **array, const char *filename) {
 	int width, height;
@@ -209,9 +170,9 @@ void assign_work()
 		return;
 	
 	send_scene_status = false;
-	std::cout<<std::endl;
+	// std::cout<<std::endl;
 
-	LoadBalancer::calc_equal(slaves_info, slaves_weight, n);
+	LoadBalancer::calc(s_app, slaves_info, slaves_weight, n);
 	int sum_height = 0;	
 	double amortized = 0;
 	for(int i=0;i<n-1;i++)
@@ -230,7 +191,6 @@ void assign_work()
 		cudaScene.render_height = slaves_info[i].render_height;
 		slaves_info[i].send_time = CycleTimer::currentSeconds();
 		
-		//std::cout<< "sending to slave frame "<<(cur_frame_number + 1)<<" "<<slaves_info[i].y0<<" "<<slaves_info[i].render_height<<std::endl;
 		master->send(i, cudaScene);
 
 		cur_y0 += slaves_info[i].render_height;
@@ -359,12 +319,20 @@ void on_master_receive_message(int conn_idx, const Message& message)
 	// we receive the image from slave-i	
 	int byte_offset = slaves_info[conn_idx].y0 * WIDTH * 4;
 
-	std::cout<<"receive piece of image from " 
-		<< conn_idx << " " << slaves_info[conn_idx].y0 << " "
-		<< (message.body_length() / 4 / WIDTH) << " "
-		<< slaves_info[conn_idx].response_duration << std::endl;
+	// grab the rendering time from the front of the message
+	std::memcpy(&slaves_info[conn_idx].rendering_latency, message.body(), sizeof(double));
 
-	std::memcpy(buffer + byte_offset, message.body(), message.body_length());
+	// network latency is response_duration - rendering_latency
+	slaves_info[conn_idx].network_latency = slaves_info[conn_idx].response_duration - slaves_info[conn_idx].rendering_latency;
+
+	// std::cout<<"receive piece of image from " 
+	// 	<< conn_idx << " " << slaves_info[conn_idx].y0 << " "
+	// 	<< ((message.body_length() - slave_buffer_img_offset) / 4 / WIDTH) << " "
+	// 	<< slaves_info[conn_idx].response_duration << " " 
+	// 	<< slaves_info[conn_idx].network_latency  << " " 
+	// 	<< slaves_info[conn_idx].rendering_latency << std::endl;
+
+	std::memcpy(s_app->buffer + byte_offset + slave_buffer_img_offset, message.body(), message.body_length());
 
 	// we could only send the next scene data to slave
 	// only if we have all the image pieces from the slaves
@@ -390,14 +358,17 @@ void on_slave_receive_message(const Message& message)
 
 	int height = cudaSceneCopy.render_height;
 	int offset = cudaSceneCopy.y0 * WIDTH * 4;
-	gpuErrchk(cudaMemcpy(buffer + slave_buffer_img_offset, cudaBuffer + (cudaSceneCopy.y0 * WIDTH * 4), 4 * WIDTH * height, cudaMemcpyDeviceToHost));
+	gpuErrchk(cudaMemcpy(s_app->buffer + slave_buffer_img_offset, cudaBuffer + (cudaSceneCopy.y0 * WIDTH * 4), 4 * WIDTH * height, cudaMemcpyDeviceToHost));
 
 	// calculate the rendering latency
 	double rendering_latency = CycleTimer::currentSeconds() 
 		- rendering_start;
 
+	// put the rendering time in front of the buffer
+	std::memcpy(s_app->buffer, &rendering_latency, sizeof(rendering_latency));
+
 	//std::string encoded_str = base64_encode(buffer, 4 * WIDTH * HEIGHT);
-	slave->send(buffer + slave_buffer_img_offset, WIDTH * (height) * 4);	
+	slave->send(s_app->buffer, WIDTH * (height) * 4 + sizeof(rendering_latency));	
 	//slave->send(encoded_str);
 }
 
