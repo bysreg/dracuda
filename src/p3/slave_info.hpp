@@ -2,6 +2,8 @@ struct SlaveInfo
 {
 	int y0;
 
+	int render_height;
+
 	// timestamp where we start to send message to the slave
 	double send_time; 
 	
