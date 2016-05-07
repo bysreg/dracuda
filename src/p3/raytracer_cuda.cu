@@ -116,6 +116,8 @@ __device__ float circle2(float2 pos, float2 center, float radius, float dist, fl
 __device__ float trace_shadow(float3 ray_e, float3 ray_d)
 {
 	// Spheres Itest
+	if (ray_d.y < 0)
+		return 0.0;
 	float res = 1.0, t;
 	for (int i = 0; i < SPHERES; i++) {
 		// Intersection test
