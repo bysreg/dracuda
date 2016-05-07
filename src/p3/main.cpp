@@ -98,6 +98,11 @@ bool RaytracerApplication::initialize()
 			buffer = new unsigned char [WIDTH * HEIGHT * 4 + slave_buffer_img_offset];
 		}else{
 			buffer = new unsigned char [WIDTH * HEIGHT * 4];
+		}
+
+		// master needs additional buffer for double buffering
+		if(options.master) {
+			back_buffer = new unsigned char [WIDTH * HEIGHT * 4];
 		}		
 	}
 
@@ -262,6 +267,13 @@ void RaytracerApplication::do_gpu_raytracing()
 {
 }
 
+void RaytracerApplication::swap_buffer()
+{
+	unsigned char* temp = buffer;
+	buffer = back_buffer;
+	back_buffer = temp;
+}
+
 static bool parse_args( Options* opt, int argc, char* argv[] )
 {
     for (int i = 1; i < argc; i++)
@@ -330,19 +342,19 @@ void on_master_receive_message(int conn_idx, const Message& message)
 	si.rendering_factor = si.rendering_latency / si.render_height;
 	si.sum_rendering_factor += si.rendering_factor;
 
-	std::cout<<"receive msg " 
-		<< conn_idx << " "
-		<< ((message.body_length() - slave_buffer_img_offset) / 4 / WIDTH) << " "
-		<<"dur:"<< si.response_duration << " " 
-		<<"net:"<< si.network_latency  << " " 
-		<<"renlat:"<< si.rendering_latency << " " 
-		<<"anet:"<< si.get_avg_network_latency() << " "
-		<<"arenfac:"<< si.get_avg_rendering_factor() << " " 
-		<<std::endl;
+	// std::cout<<"receive msg " 
+	// 	<< conn_idx << " "
+	// 	<< ((message.body_length() - slave_buffer_img_offset) / 4 / WIDTH) << " "
+	// 	<<"dur:"<< si.response_duration << " " 
+	// 	<<"net:"<< si.network_latency  << " " 
+	// 	<<"renlat:"<< si.rendering_latency << " " 
+	// 	<<"anet:"<< si.get_avg_network_latency() << " "
+	// 	<<"arenfac:"<< si.get_avg_rendering_factor() << " " 
+	// 	<<std::endl;
 
 	// we receive the image from slave-i	
 	int byte_offset = si.y0 * WIDTH * 4;
-	std::memcpy(s_app->buffer + byte_offset, message.body() + slave_buffer_img_offset, message.body_length() - sizeof(double));
+	std::memcpy(s_app->back_buffer + byte_offset, message.body() + slave_buffer_img_offset, message.body_length() - sizeof(double));
 
 	// we could only send the next scene data to slave
 	// only if we have all the image pieces from the slaves
@@ -350,9 +362,10 @@ void on_master_receive_message(int conn_idx, const Message& message)
 	buffer_frame_height += piece_height;
 
 	if(buffer_frame_height >= HEIGHT) 
-	{		
+	{
 		buffer_frame_height = 0;
 		send_scene_status = true;
+		s_app->swap_buffer();
 	}
 
 	// std::cout<<"finish"<<std::endl;
