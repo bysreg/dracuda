@@ -41,7 +41,7 @@ static Slave* slave;
 
 // offset for slave buffer
 // the first double is used to store the rendering latency
-static const int slave_buffer_img_offset = 0;
+static const int slave_buffer_img_offset = sizeof(double);
 
 // master's related variable
 static int buffer_frame_height = 0;
@@ -123,7 +123,7 @@ bool RaytracerApplication::initialize()
 
 		// master's read buffer need to be able to accomodate
 		// image that is being sent from the slave
-		Master::read_msg_max_length = WIDTH * HEIGHT * 4;
+		Master::read_msg_max_length = WIDTH * HEIGHT * 4 + 100;
 		master = &Master::start();
 		master->set_on_message_received(on_master_receive_message);
 		master->set_on_connection_started(on_master_connection_started);
@@ -338,7 +338,7 @@ void on_master_receive_message(int conn_idx, const Message& message)
 
 	// we receive the image from slave-i	
 	int byte_offset = si.y0 * WIDTH * 4;
-	std::memcpy(s_app->buffer + byte_offset + slave_buffer_img_offset, message.body(), message.body_length());
+	std::memcpy(s_app->buffer + byte_offset, message.body() + slave_buffer_img_offset, message.body_length() - sizeof(double));
 
 	// we could only send the next scene data to slave
 	// only if we have all the image pieces from the slaves
