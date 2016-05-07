@@ -36,7 +36,7 @@ void PoolScene::initialize()
 		bool flag = true;
 		while (flag) {
 			flag = false;
-			balls[i].position = Vector3((2 * random_uniform() - 1) * TABLE_WIDTH, 1.0, (2 * random_uniform() - 1) * TABLE_HEIGHT);
+			balls[i].position = Vector3((2 * random_uniform() - 1) * (TABLE_WIDTH - 1), 1.0, (2 * random_uniform() - 1) * (TABLE_HEIGHT - 1));
 			for (int j = 0; j < i; j++) {
 				Vector3 dist = -balls[i].position + balls[j].position;
 				if (length(dist) < 2.5)
