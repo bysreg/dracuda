@@ -39,7 +39,7 @@ CudaScene cudaScene;
 
 static Master* master;
 static Slave* slave;
-
+static bool paused;
 // offset for slave buffer
 // the first double is used to store the rendering latency
 static const int slave_buffer_img_offset = sizeof(double);
@@ -201,7 +201,9 @@ void RaytracerApplication::update( float delta_time )
 	camera_control.update(delta_time);
 	if (options.master) {
 		time += delta_time;
-		poolScene.update(delta_time);
+		if (!paused) {
+			poolScene.update(delta_time);
+		}
 		poolScene.toCudaScene(cudaScene);
 		assign_work();
 	} else if (!options.slave) {
@@ -228,8 +230,9 @@ void RaytracerApplication::render()
 
 	glColor4d( 1.0, 1.0, 1.0, 1.0 );
 	glRasterPos2f( -1.0f, -1.0f );
-	if (!options.slave)
+	if (!options.slave) {
 		glDrawPixels( WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, &buffer[0] );
+	}
 }
 
 void RaytracerApplication::handle_event( const SDL_Event& event )
@@ -243,6 +246,9 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
         {
 		case KEY_RAYTRACE_GPU:
 			poolScene.balls[0].velocity += Vector3(0.0, 0.0, -5.0);
+			break;
+		case SDLK_h:
+			paused = !paused;
 			break;
         default:
             break;
@@ -324,14 +330,14 @@ void on_master_receive_message(int conn_idx, const Message& message)
 	si.rendering_factor = si.rendering_latency / si.render_height;
 	si.sum_rendering_factor += si.rendering_factor;
 
-	std::cout<<"receive piece of image from " 
+	std::cout<<"receive msg " 
 		<< conn_idx << " "
 		<< ((message.body_length() - slave_buffer_img_offset) / 4 / WIDTH) << " "
-		<< si.response_duration << " " 
-		<< si.network_latency  << " " 
-		<< si.rendering_latency << " " 
-		<< si.get_avg_network_latency() << " "
-		<< si.get_avg_rendering_factor() << " " 
+		<<"dur:"<< si.response_duration << " " 
+		<<"net:"<< si.network_latency  << " " 
+		<<"renlat:"<< si.rendering_latency << " " 
+		<<"anet:"<< si.get_avg_network_latency() << " "
+		<<"arenfac:"<< si.get_avg_rendering_factor() << " " 
 		<<std::endl;
 
 	// we receive the image from slave-i	
