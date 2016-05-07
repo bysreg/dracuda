@@ -22,7 +22,7 @@ class LoadBalancer
 	static void calc_equal(SlaveInfo* input, double* output, int size);
 
 	
-	static void calc_ab(SlaveInfo* input, double* output, int size);
+	static void calc_ab(SlaveInfo* input, double* output, int size, double total_workload);
 
 	private:
 	LoadBalancer();	

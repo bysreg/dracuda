@@ -11,6 +11,9 @@
 
 #define EPS 0.0001
 
+#define NSAMPLES 6
+#define SHADOW_RAYS 5
+
 unsigned char *cudaBuffer;
 
 inline __device__ float3 quaternionXvector(float4 q, float3 vec)
@@ -223,9 +226,6 @@ __device__ float3 do_material (int geom, float3 pos)
 	return mate;
 }
 
-
-#define NSAMPLES 5
-#define SHADOW_RAYS 1
 
 __global__
 void curandSetupKernel()

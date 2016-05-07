@@ -303,12 +303,13 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 			floatv x = make_float<floatv>(0.5f);
 			floatv y = make_float<floatv>(0.7f);
 			floatv z = x + y;
-			printVec(z);
+			//printVec(z);
 			/*
 			__m256 x = _mm256_set1_ps(0.5f);
 			__m256 y = _mm256_set1_ps(0.7f);
 			__m256 z = _mm256_add_ps(x, y);
 			*/
+			//printVec(z);
 		}
 	}
 }

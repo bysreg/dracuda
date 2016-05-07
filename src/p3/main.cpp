@@ -47,8 +47,8 @@ static const int slave_buffer_img_offset = sizeof(double);
 // master's related variable
 static int buffer_frame_height = 0;
 static bool send_scene_status = false; // can we send scene data to slave?
-static SlaveInfo slaves_info[100] = {0}; // zero initialize array
-static double slaves_weight[100] = {0}; // zero initialize array
+static SlaveInfo slaves_info[MAX_SLAVE] = {0}; // zero initialize array
+static double slaves_weight[MAX_SLAVE] = {0}; // zero initialize array
 static bool app_started = false;
 static RaytracerApplication* s_app = nullptr;
 
@@ -209,9 +209,9 @@ void RaytracerApplication::update( float delta_time )
 		time += delta_time;
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);
-		simdRayTrace(&cudaScene, buffer);
-		//cudaRayTrace(&cudaScene, buffer);
+		//simdRayTrace(&cudaScene, buffer);
 		//singleRayTrace(&cudaScene, buffer);
+		cudaRayTrace(&cudaScene, buffer);
 	}
 }
 
@@ -305,6 +305,8 @@ void on_master_connection_started(Connection& conn)
 
 void on_master_receive_message(int conn_idx, const Message& message)
 {
+	// std::cout<<"start processing message from slave"<<std::endl;
+
 	SlaveInfo& si = slaves_info[conn_idx];
 	si.messages_received++;	
 
@@ -346,6 +348,8 @@ void on_master_receive_message(int conn_idx, const Message& message)
 		buffer_frame_height = 0;
 		send_scene_status = true;
 	}
+
+	// std::cout<<"finish"<<std::endl;
 }
 
 void on_slave_receive_message(const Message& message) 
