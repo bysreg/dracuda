@@ -8,6 +8,7 @@
 #include <curand.h>
 #include "raytracer_cuda.hpp"
 #include "raytracer_single.hpp"
+#include "raytracer_simd.hpp"
 #include "cycleTimer.h"
 #include "constants.hpp"
 #include "PoolScene.hpp"
@@ -107,6 +108,7 @@ bool RaytracerApplication::initialize()
 
 	// CUDA part
 	cudaInitialize();
+	simdInitialize();
 	std::cout << "Cuda initialized" << std::endl;
 	if(options.master) {
 		// initialize master
@@ -207,7 +209,7 @@ void RaytracerApplication::update( float delta_time )
 		time += delta_time;
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);
-		cudaRayTrace(&cudaScene, buffer);
+		simdRayTrace(&cudaScene, buffer);
 		//singleRayTrace(&cudaScene, buffer);
 	}
 }

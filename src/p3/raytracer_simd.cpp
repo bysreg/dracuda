@@ -7,12 +7,14 @@
 #include "cycleTimer.h"
 #include "constants.hpp"
 #include "math/random462.hpp"
+#include <immintrin.h>
 #define PI 3.1415926535
 
 #define EPS 0.0001
 
 static PoolConstants cuConstants;// = poolConstants;
 static CudaScene cuScene;
+
 
 inline  static float3 quaternionXvector(float4 q, float3 vec)
 {
@@ -272,11 +274,34 @@ float planeIntersectionTestAll(float3 ray_d, float3 ray_e, int &geom, float tmin
 	return tmin;
 }
 
-void singleInitialize()
-{
+float *printBuffer;
 
+void simdInitialize()
+{
+	posix_memalign((void **)&printBuffer, 32, sizeof(float) * 8);
 }
 
+void printVec(__m256 vec)
+{
+	_mm256_store_ps(printBuffer, vec);
+	for (int i = 0; i < 8; i++)
+		printf("V%d: %f ", i, printBuffer[i]);
+	printf("\n");
+}
+
+void simdRayTrace(CudaScene *scene, unsigned char *img)
+{
+	for (int y = 0; y < HEIGHT; y++) {
+		for (int x0 = 0; x0 < HEIGHT; x0 += 8) {
+			__m256 x = _mm256_set1_ps(0.5f);
+			__m256 y = _mm256_set1_ps(0.7f);
+			__m256 z = _mm256_add_ps(x, y);
+			//printVec(z);
+		}
+	}
+}
+
+/*
 void singleRayTrace(CudaScene *scene, unsigned char *img)
 {
 	//CudaScene &cuScene = *scene;
@@ -369,3 +394,4 @@ void singleRayTrace(CudaScene *scene, unsigned char *img)
 	*((uchar4 *)img + w) = col0;
 	}
 }
+*/
