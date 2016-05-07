@@ -31,7 +31,7 @@
 
 <h3>Achievements</h3>
 
-<p>We started with hand-crafting a single-threaded pool table raytracing demo, and parallelized it with CUDA and CPU multi-threaded SIMD. The CUDA version achieves a MEASURING speedup, and the SIMD version has a MEASURING speedup. However, as the speedups on the same node are different, and the ratio of GPU/CPU computing power can also differ across nodes, we decided to implement a general heterogeneous load-balancing algorithm, which estimates a computing device's overall response time as a function of workload: y = f(x). Using different functions to estimate results in different load-balancing algorithms. We will give details of different algorithms we have tried in the following section.
+<p>We started with hand-crafting a single-threaded pool table raytracing demo, and parallelized it with CUDA and CPU multi-threaded SIMD. On Latedays, the CUDA version achieves a 181.6x speedup over CPU version, and the SIMD version has a MEASURING speedup. However, as the speedups on the same node are different, and the ratio of GPU/CPU computing power can also differ across nodes, we decided to implement a general heterogeneous load-balancing algorithm, which estimates a computing device's overall response time as a function of workload: y = f(x). Using different functions to estimate results in different load-balancing algorithms. We will give details of different algorithms we have tried in the following section.
 
 <h3>
 <a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Load Balancer</h3>
