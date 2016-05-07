@@ -19,7 +19,10 @@ class LoadBalancer
 
 	// no matter the input, will populate the output 
 	// with equal weight for all elements
-	static void calc_equal(SlaveInfo* input, double* output, int size);	
+	static void calc_equal(SlaveInfo* input, double* output, int size);
+
+	
+	static void calc_ab(SlaveInfo* input, double* output, int size);
 
 	private:
 	LoadBalancer();	
