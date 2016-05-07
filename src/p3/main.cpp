@@ -33,7 +33,6 @@
 
 using namespace std;
 
-
 PoolScene poolScene;
 CudaScene cudaScene;
 
@@ -51,6 +50,9 @@ static SlaveInfo slaves_info[MAX_SLAVE] = {0}; // zero initialize array
 static double slaves_weight[MAX_SLAVE] = {0}; // zero initialize array
 static bool app_started = false;
 static RaytracerApplication* s_app = nullptr;
+static int master_render_frame_counter = 0;
+static int master_render_frame_print_time = 10;
+static int master_render_frame_rate_counter_start = 0;
 
 void on_master_connection_started(Connection& conn);
 void on_master_receive_message(int conn_idx, const Message& message);
@@ -124,6 +126,7 @@ bool RaytracerApplication::initialize()
 		master = &Master::start();
 		master->set_on_message_received(on_master_receive_message);
 		master->set_on_connection_started(on_master_connection_started);
+		master_render_frame_rate_counter_start = SDL_GetTicks();
 		send_scene_status = true;
 	}else if(options.slave) {
 		// initialize slave
@@ -135,7 +138,7 @@ bool RaytracerApplication::initialize()
 		slave->run();
 	}	
 
-    return true;
+	return true;
 }
 
 void RaytracerApplication::destroy()
@@ -224,14 +227,14 @@ void RaytracerApplication::update( float delta_time )
 
 void RaytracerApplication::render()
 {
-    glViewport( 0, 0, WIDTH, HEIGHT );
-    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	glViewport( 0, 0, WIDTH, HEIGHT );
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-    // reset matrices
-    glMatrixMode( GL_PROJECTION );
-    glLoadIdentity();
-    glMatrixMode( GL_MODELVIEW );
-    glLoadIdentity();
+	// reset matrices
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
 
 	glColor4d( 1.0, 1.0, 1.0, 1.0 );
 	glRasterPos2f( -1.0f, -1.0f );
@@ -244,23 +247,23 @@ void RaytracerApplication::handle_event( const SDL_Event& event )
 {
 	camera_control.handle_event( event );
 
-    switch ( event.type )
-    {
-    case SDL_KEYDOWN:
-        switch ( event.key.keysym.sym )
-        {
+	switch ( event.type )
+	{
+	case SDL_KEYDOWN:
+		switch ( event.key.keysym.sym )
+		{
 		case KEY_RAYTRACE_GPU:
 			poolScene.balls[0].velocity += Vector3(0.0, 0.0, -5.0);
 			break;
 		case SDLK_h:
 			paused = !paused;
 			break;
-        default:
-            break;
-        }
-    default:
-        break;
-    }
+		default:
+			break;
+		}
+	default:
+		break;
+	}
 }
 
 void RaytracerApplication::do_gpu_raytracing()
@@ -276,36 +279,36 @@ void RaytracerApplication::swap_buffer()
 
 static bool parse_args( Options* opt, int argc, char* argv[] )
 {
-    for (int i = 1; i < argc; i++)
-    {
-    	if(strcmp(argv[i] + 1, "master") == 0) {    		
-    		opt->master = true;
+	for (int i = 1; i < argc; i++)
+	{
+		if(strcmp(argv[i] + 1, "master") == 0) {    		
+			opt->master = true;
 
-    		if(i+1 > argc-1) {
-    			std::cout<<"master needs number of minimum connected slaves"<<std::endl;
-    			return false;
-    		}
-    		
-    		// we assume the next parameter for master
-    		// is the minimum slave required to begin application
-    		opt->min_slave_to_start = std::atoi(argv[i + 1]);    		
+			if(i+1 > argc-1) {
+				std::cout<<"master needs number of minimum connected slaves"<<std::endl;
+				return false;
+			}
+			
+			// we assume the next parameter for master
+			// is the minimum slave required to begin application
+			opt->min_slave_to_start = std::atoi(argv[i + 1]);    		
 
-    		continue;
-    	}
-    	else if(strcmp(argv[i] + 1, "slave") == 0) {
-    		// slave needs host address
-    		if(i+1 > argc-1) {
-    			std::cout<<"slave needs host address"<<std::endl;
-    			return false;
-    		}
+			continue;
+		}
+		else if(strcmp(argv[i] + 1, "slave") == 0) {
+			// slave needs host address
+			if(i+1 > argc-1) {
+				std::cout<<"slave needs host address"<<std::endl;
+				return false;
+			}
 
-    		opt->slave = true;
-    		opt->host = argv[i + 1]; // we assume the next parameter is the master's host for the slave to connect to
-    		i++;
-    		continue;
-    	}
-    }
-    return true;
+			opt->slave = true;
+			opt->host = argv[i + 1]; // we assume the next parameter is the master's host for the slave to connect to
+			i++;
+			continue;
+		}
+	}
+	return true;
 }
 
 using namespace std;
@@ -324,6 +327,7 @@ void on_master_connection_started(Connection& conn)
 void on_master_receive_message(int conn_idx, const Message& message)
 {
 	// std::cout<<"start processing message from slave"<<std::endl;
+	// printf("start process %d\n", conn_idx);
 
 	SlaveInfo& si = slaves_info[conn_idx];
 	si.messages_received++;	
@@ -356,6 +360,11 @@ void on_master_receive_message(int conn_idx, const Message& message)
 	int byte_offset = si.y0 * WIDTH * 4;
 	std::memcpy(s_app->back_buffer + byte_offset, message.body() + slave_buffer_img_offset, message.body_length() - sizeof(double));
 
+	// ======== critical section ============
+	// better use locks here, if Master::max_concurrent_conn > 1
+	// Master::max_concurrent_conn is currently set to 1, because
+	// we don't notice that much difference
+
 	// we could only send the next scene data to slave
 	// only if we have all the image pieces from the slaves
 	int piece_height = ((message.body_length() / 4) / WIDTH);
@@ -366,9 +375,20 @@ void on_master_receive_message(int conn_idx, const Message& message)
 		buffer_frame_height = 0;
 		send_scene_status = true;
 		s_app->swap_buffer();
+	
+		// fps
+		master_render_frame_counter++;
+		if ( master_render_frame_counter == master_render_frame_print_time ) {
+			int curr_time = SDL_GetTicks();
+			printf( "master render fps: %f\n",
+				master_render_frame_print_time * 1000 / float(curr_time - master_render_frame_rate_counter_start)
+			);
+			master_render_frame_rate_counter_start = curr_time;
+			master_render_frame_counter = 0;
+		}
 	}
-
-	// std::cout<<"finish"<<std::endl;
+	// printf("finish %d\n", conn_idx);
+	// ========== end of critical section =========
 }
 
 void on_slave_receive_message(const Message& message) 
@@ -404,7 +424,7 @@ int main( int argc, char* argv[] )
 	int ret = 0;
 
 	if ( !parse_args( &opt, argc, argv ) ) {
-	    return 1;
+		return 1;
 	}
 
 	RaytracerApplication app( opt );

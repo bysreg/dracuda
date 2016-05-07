@@ -49,6 +49,7 @@ private:
 	tcp::socket socket;
 	Message read_msg;
 	MessageQueue write_msgs;
+	boost::asio::strand strand;
 	Master& master;
 };
 
@@ -65,6 +66,7 @@ private:
 public:	
 
 	static int read_msg_max_length;
+	static int max_concurrent_conn;
 
 	static Master& start();	
 

@@ -180,7 +180,7 @@ static void run_main_loop( void (*update_fn)( LoopData*, bool ), LoopData* data,
 
         if ( frame_rate_counter == FRAME_RATE_PRINT_TIME ) {
             int curr_time = SDL_GetTicks();
-            printf( "frame rate: %f, avg frame time: %f\n",
+            printf( "main loop frame rate: %f, avg frame time: %f\n",
                 FRAME_RATE_PRINT_TIME * 1000 / float(curr_time - frame_rate_counter_start),
                 float(total_frame_time) / FRAME_RATE_PRINT_TIME
             );

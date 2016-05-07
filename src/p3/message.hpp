@@ -66,7 +66,7 @@ public:
 		// std::cout<<"body length is : " << body_length_<<std::endl;
 		if (body_length_ > max_body_length)
 		{
-			// std::cout<<"message is not valid"<<std::endl;
+			std::cout<<"message is not valid"<<std::endl;
 			body_length_ = 0;
 			return false;
 		}

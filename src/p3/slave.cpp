@@ -68,6 +68,7 @@ void Slave::do_read_header()
 			}
 			else
 			{
+				std::cout<<"something is wrong. closing socket"<<std::endl;
 				socket.close();
 			}
 		});
@@ -96,7 +97,6 @@ void Slave::do_read_body()
 			{
 				// something is wrong
 				std::cout<<"something is wrong "<<ec<<std::endl;
-
 				socket.close();
 			}
 		});

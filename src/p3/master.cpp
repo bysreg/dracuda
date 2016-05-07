@@ -2,11 +2,12 @@
 #include "master.hpp"
 
 int Master::read_msg_max_length = 800*600*3;
+int Master::max_concurrent_conn = 1;
 
 Connection::Connection(boost::asio::ip::tcp::socket socket_, 
 	Master& master_)
 	: socket(std::move(socket_)), read_msg(Master::read_msg_max_length), 
-	  master(master_)
+	  master(master_), strand(socket.get_io_service())
 {}
 
 void Connection::start()
@@ -79,10 +80,12 @@ void Connection::do_write()
 void Connection::do_read_header()
 {
 	// std::cout<<"trying to call read header"<<std::endl;
-
 	auto self(shared_from_this());
+
 	boost::asio::async_read(socket,
 		boost::asio::buffer(read_msg.data(), Message::header_length),
+		
+		strand.wrap(
 		[this, self](boost::system::error_code ec, std::size_t /*length*/)
 		{
 			if (!ec && read_msg.decode_header())
@@ -94,16 +97,19 @@ void Connection::do_read_header()
 				// something is wrong
 				std::cout<<"something is wrong "<<ec<<std::endl;
 			}
-		});
+		})
+	);
 }
 
 void Connection::do_read_body()
 {
 	// std::cout<<"trying to call read body"<<std::endl;
-
 	auto self(shared_from_this());
+
 	boost::asio::async_read(socket,
 		boost::asio::buffer(read_msg.body(), read_msg.body_length()),
+		
+		strand.wrap(
 		[this, self](boost::system::error_code ec, std::size_t /*length*/)
 		{
 			if (!ec)
@@ -119,7 +125,8 @@ void Connection::do_read_body()
 				// something is wrong
 				std::cout<<"something is wrong "<<ec<<std::endl;
 			}
-		});
+		})
+	);
 }
 
 Master::Master(boost::asio::io_service& io_service)
@@ -139,8 +146,13 @@ Master& Master::start()
 
 	std::cout<<"starting master..."<<std::endl;
 
-	boost::thread t(boost::bind(&boost::asio::io_service::run,
-		&io_service));
+	// thread pools to be able concurrently handle
+	// more than one connections
+	for(int i=0;i<max_concurrent_conn;i++)
+	{
+		boost::thread t(boost::bind(&boost::asio::io_service::run,
+			&io_service));
+	}
 
 	return master;
 }
