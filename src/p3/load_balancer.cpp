@@ -24,9 +24,9 @@ void LoadBalancer::calc(const RaytracerApplication* app, SlaveInfo* input, doubl
 		}
 
 		// pick one of the techniques	
-		calc_equal(input, output, size);
+		// calc_equal(input, output, size);
 		// calc_naive(input, output, size);
-		//calc_ab(input, output, size);
+		calc_ab(input, output, size);
 	}	
 
 	std::cout<<"weight : ";
@@ -72,9 +72,9 @@ void LoadBalancer::calc_ab(SlaveInfo* input, double* output, int size)
 	for(int i=1;i<size;i++)
 	{
 		double diff_a =  input[i].get_avg_network_latency() - input[i-1].get_avg_network_latency();
-		sum_inv_b += input[i-1].get_avg_rendering_factor();
+		sum_inv_b += (1 / input[i-1].get_avg_rendering_factor());
 		
-		cur_workload == diff_a / sum_inv_b;
+		cur_workload += diff_a / sum_inv_b;
 		
 		if(cur_workload >= total_workload){
 			last_slave_idx = i;
@@ -83,20 +83,25 @@ void LoadBalancer::calc_ab(SlaveInfo* input, double* output, int size)
 	}
 
 	if(cur_workload > total_workload) {
+		// std::cout<<"aaa"<<std::endl;
+
 		double diff_workload = cur_workload - total_workload;
 		double diff_response_time = diff_workload / (sum_inv_b);
 		balanced_resp_time = input[last_slave_idx].get_avg_network_latency() 
 								+ diff_response_time; 
 	}else if(cur_workload < total_workload) {
+		// std::cout<<"bbb"<<std::endl;
+
 		double diff_workload = total_workload - cur_workload;
 
 		// add the last inv_b to the sum_inv_b
-		sum_inv_b += input[size-1].get_avg_rendering_factor();
+		sum_inv_b += (1 / input[size-1].get_avg_rendering_factor());
 
 		double diff_response_time = diff_workload / sum_inv_b;
 		balanced_resp_time = input[size-1].get_avg_network_latency() 
 								+ diff_response_time; 
 	}else{
+		// std::cout<<"ccc"<<std::endl;
 		balanced_resp_time = input[size-1].get_avg_network_latency();
 	}
 

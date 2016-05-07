@@ -322,7 +322,10 @@ void on_master_receive_message(int conn_idx, const Message& message)
 		<< ((message.body_length() - slave_buffer_img_offset) / 4 / WIDTH) << " "
 		<< si.response_duration << " " 
 		<< si.network_latency  << " " 
-		<< si.rendering_latency << std::endl;
+		<< si.rendering_latency << " " 
+		<< si.get_avg_network_latency() << " "
+		<< si.get_avg_rendering_factor() << " " 
+		<<std::endl;
 
 	// we receive the image from slave-i	
 	int byte_offset = si.y0 * WIDTH * 4;
