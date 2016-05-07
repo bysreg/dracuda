@@ -1,6 +1,7 @@
 #include "PoolScene.hpp"
 #include "cudaScene.hpp"
 #include "constants.hpp"
+#include "math/random462.hpp"
 
 #define L 1.7320508
 
@@ -24,14 +25,24 @@ Vector3 ball_initial_positions[SPHERES] = {
 };
 
 Vector3 velocity_acc[SPHERES];
+Vector3 position_acc[SPHERES];
 int times[SPHERES];
 
 
 void PoolScene::initialize()
 {
 	time = 0;
-	for (size_t i = 0; i < SPHERES; i++) {
-		balls[i].position = ball_initial_positions[i];
+	for (int i = 0; i < SPHERES; i++) {
+		bool flag = true;
+		while (flag) {
+			flag = false;
+			balls[i].position = Vector3((2 * random_uniform() - 1) * TABLE_WIDTH, 1.0, (2 * random_uniform() - 1) * TABLE_HEIGHT);
+			for (int j = 0; j < i; j++) {
+				Vector3 dist = -balls[i].position + balls[j].position;
+				if (length(dist) < 2.5)
+					flag = true;
+			}
+		}
 		balls[i].orientation = Quaternion::Identity();
 	}
 	//balls[2].velocity = Vector3(3.9, 0, -3.80);
@@ -59,6 +70,7 @@ void PoolScene::update (float delta_time)
 	float time_scale = 0.5;
 	for (int i = 0; i < SPHERES; i++) {
 		velocity_acc[i] = Vector3(0, 0, 0);
+		position_acc[i] = Vector3(0, 0, 0);
 		times[i] = 0;
 	}
 
@@ -67,6 +79,7 @@ void PoolScene::update (float delta_time)
 		for (int j = i + 1; j < SPHERES; j++) {
 			Vector3 dist = -balls[i].position + balls[j].position;
 			Vector3 vel1 = balls[i].velocity - balls[j].velocity;
+			float len = length(dist);
 			if (length(dist) < 2) {
 				Vector3 vel2 = normalize(dist) * dot(normalize(dist), vel1);
 				Vector3 u2 = balls[j].velocity + vel2;
@@ -74,11 +87,13 @@ void PoolScene::update (float delta_time)
 				times[j] ++;
 				velocity_acc[i] += balls[i].velocity + balls[j].velocity - u2;
 				velocity_acc[j] += u2;
+				position_acc[i] -= (2 - len) / 2.0 * normalize(dist);
+				position_acc[j] += (2 - len) / 2.0 * normalize(dist);
 			}
 		}
 	}
 
-	float width = TABLE_WIDTH, height = TABLE_HEIGHT;
+	float width = TABLE_WIDTH - 1, height = TABLE_HEIGHT - 1;
 	// Collision with walls
 	for (int i = 0; i < SPHERES; i++) {
 		if (balls[i].position.x < -width) {
@@ -102,6 +117,7 @@ void PoolScene::update (float delta_time)
 	for (int i = 0; i < SPHERES; i++) {
 		if (times[i] > 0) {
 			balls[i].velocity = velocity_acc[i] / times[i];
+			balls[i].position += position_acc[i] / times[i];
 		}
 	}
 	// Update position & orientation;

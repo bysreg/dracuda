@@ -114,11 +114,10 @@ __device__ float3 doEnvironment( float3 rd )
 
 __device__ float distanceToSegment( float2 a, float2 b, float2 p )
 {
-		float2 pa = p - a;
-			float2 ba = b - a;
-				float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
-					
-					return length( pa - ba*h );
+	float2 pa = p - a;
+	float2 ba = b - a;
+	float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+	return length( pa - ba*h );
 }
 
 __device__ float circle2(float2 pos, float2 center, float radius, float dist, float begin, float interval)
