@@ -22,9 +22,6 @@
 
 <p>Muhammad Hilman Beyri (mbeyri), Zixu Ding (zixud)</p>
 
-
-<h3><a href="Checkpoint.pdf">Checkpoint Report</a></h3>
-
 <h3>Summary</h3>
 
 <p>We have developed a cloud-based CPU (SIMD)/GPU hybrid interactive raytracing demo, using an adaptive load-balancing algorithm which partitions work among nodes without knowing their computing power in advance.</p>
@@ -162,8 +159,9 @@ For monday presentation, we will create a better grapth to illustrate the data, 
 
 <p>The architecture of this project is simple. Worker nodes are responsible for rendering. They take scene data and the work assignment information (like from Row A - Row B) as input, and send back the rendered portion of the image (compressed). The local client divides the screen into tiles, sends the scene data and work allocation to worker nodes, and collects all the image parts from worker nodes and display the frames. It also adjusts the work assignment each frame using the adaptive algorithm we mentioned above.</p>
 
-<h3>
+<h3><a href="Checkpoint.pdf">Checkpoint Report April 19</a></h3>
 
+<h3>
 <a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The Challenge</h3>
 <p>
 Performance
