@@ -10,6 +10,8 @@
 
 #define EPS 0.0001
 
+unsigned char *cudaBuffer;
+
 inline __host__ __device__ float3 quaternionXvector(float4 q, float3 vec)
 {
 	float3 qvec = make_float3(q.x, q.y, q.z);
@@ -308,18 +310,9 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 	curandState *curand = cuConstants.curand + w;
 
 	// Calc Ray
-	/*
-	float3 dir = quaternionXvector(*((float4 *)cuScene.cam_orientation), make_float3(0, 0, -1));
-	float3 up = quaternionXvector(*((float4 *)cuScene.cam_orientation), make_float3(0, 1, 0));
-	float AR = cuScene.aspect;
-	float3 cR = cross(dir, up); // 1, 0, 0
-	float3 cU = cross(cR, dir); // 0, 1, 0
-	float dist = tan(cuScene.fov / 2.0);
-	*/
 	float3 accumulated_color = make_float3(0.0, 0.0, 0.0);
 
 	// Jittered Sampling
-
 	for (int sampleX = 0; sampleX < NSAMPLES; sampleX++)
 	for (int sampleY = 0; sampleY < NSAMPLES; sampleY++) {
 		float di = (x + (sampleX + curand_uniform(curand)) / NSAMPLES) / WIDTH * 2 - 1;
@@ -399,13 +392,14 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 	col0.y = clamp(__powf(accumulated_color.y, 0.45) * 255, 0.0, 255.0);
 	col0.z = clamp(__powf(accumulated_color.z, 0.45) * 255, 0.0, 255.0);
 	col0.w = 255;
-	*((uchar4 *)img + w) = col0;
+	*((uchar4 *)img + w - WIDTH * y_start) = col0;
 	
 }
 
 void cudaInitialize()
 {
 	initialize_constants();
+	gpuErrchk(cudaMalloc((void **)&cudaBuffer, 4 * HEIGHT * WIDTH));
 	gpuErrchk(cudaMalloc((void **)&poolConstants.curand, sizeof(curandState) * WIDTH * HEIGHT));
 	gpuErrchk(cudaMemcpyToSymbol(cuConstants, &poolConstants, sizeof(PoolConstants)));
 	dim3 dimBlock(16, 16);
@@ -425,18 +419,13 @@ void cudaRayTrace(CudaScene *scene, unsigned char *img)
 	dim3 dimGrid(WIDTH / 16, (height + 16 - 1) / 16);
 
 	double startTime = CycleTimer::currentSeconds();
-	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(img, scene->y0);
+	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(cudaBuffer, scene->y0);
 	cudaDeviceSynchronize();
 	printf("CUDA rendering time: %lf\n", CycleTimer::currentSeconds() - startTime);
 
 	cudaError_t error = cudaGetLastError();
 	if ( cudaSuccess != error )
 			printf( "Error: %d\n", error );
+	gpuErrchk(cudaMemcpy(img, cudaBuffer, 4 * WIDTH * height , cudaMemcpyDeviceToHost));
+	//gpuErrchk(cudaMemcpy(img, cudaBuffer + (scene->y0 * WIDTH * 4), 4 * WIDTH * height, cudaMemcpyDeviceToHost));
 }
-
-				// Rim
-				/*
-				if (geom <= 3)
-				surface_color *= 1.0 + 6.0 * m* powf( clamp( 1.0 + dot(normal, ray_d), 0.0f, 1.0f ), 2.0 );
-				*/
-

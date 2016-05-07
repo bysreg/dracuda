@@ -31,7 +31,6 @@
 
 using namespace std;
 
-unsigned char *cudaBuffer;
 
 PoolScene poolScene;
 CudaScene cudaScene;
@@ -105,15 +104,7 @@ bool RaytracerApplication::initialize()
 		cudaScene.render_height = HEIGHT;
 	}
 
-	/*
-	cudaArray *cu_2darray;
-	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat );
-	LoadEnvmap(&cu_2darray, "images/stpeters_probe.pfm");
-	bindEnvmap(cu_2darray, channelDesc);
-	*/
-
 	// CUDA part
-	gpuErrchk(cudaMalloc((void **)&cudaBuffer, 4 * HEIGHT * WIDTH));
 	cudaInitialize();
 	std::cout << "Cuda initialized" << std::endl;
 	if(options.master) {
@@ -215,8 +206,7 @@ void RaytracerApplication::update( float delta_time )
 		time += delta_time;
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);
-		cudaRayTrace(&cudaScene, cudaBuffer);
-		gpuErrchk(cudaMemcpy(buffer, cudaBuffer, 4 * WIDTH * HEIGHT, cudaMemcpyDeviceToHost));
+		cudaRayTrace(&cudaScene, buffer);
 	}
 }
 
@@ -352,11 +342,9 @@ void on_slave_receive_message(const Message& message)
 	double rendering_start = CycleTimer::currentSeconds();
 
 	std::memcpy(&cudaSceneCopy, message.body(), message.body_length());
-	cudaRayTrace(&cudaSceneCopy, cudaBuffer);
+	cudaRayTrace(&cudaSceneCopy, s_app->buffer + slave_buffer_img_offset);
 
-	int height = cudaSceneCopy.render_height;
-	int offset = cudaSceneCopy.y0 * WIDTH * 4;
-	gpuErrchk(cudaMemcpy(s_app->buffer + slave_buffer_img_offset, cudaBuffer + (cudaSceneCopy.y0 * WIDTH * 4), 4 * WIDTH * height, cudaMemcpyDeviceToHost));
+	//int offset = cudaSceneCopy.y0 * WIDTH * 4;
 
 	// calculate the rendering latency
 	double rendering_latency = CycleTimer::currentSeconds() 
@@ -366,6 +354,7 @@ void on_slave_receive_message(const Message& message)
 	std::memcpy(s_app->buffer, &rendering_latency, sizeof(rendering_latency));
 
 	//std::string encoded_str = base64_encode(buffer, 4 * WIDTH * HEIGHT);
+	int height = cudaSceneCopy.render_height;
 	slave->send(s_app->buffer, WIDTH * (height) * 4 + sizeof(rendering_latency));	
 	//slave->send(encoded_str);
 }
