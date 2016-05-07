@@ -70,6 +70,10 @@ void Slave::do_read_header()
 			{
 				std::cout<<"something is wrong. closing socket"<<std::endl;
 				socket.close();
+
+				if(on_socket_closed) {
+					on_socket_closed();
+				}
 			}
 		});
 }
@@ -98,6 +102,10 @@ void Slave::do_read_body()
 				// something is wrong
 				std::cout<<"something is wrong "<<ec<<std::endl;
 				socket.close();
+
+				if(on_socket_closed) {
+					on_socket_closed();
+				}
 			}
 		});
 }
@@ -157,6 +165,10 @@ void Slave::do_write()
 			{
 				std::cout<<"something is wrong"<<std::endl;
 				socket.close();
+
+				if(on_socket_closed) {
+					on_socket_closed();
+				}
 			}
 		});
 }
@@ -177,6 +189,11 @@ struct Test {
 void Slave::set_on_message_received(std::function<void(const Message& message)> const& cb)
 {
 	on_message_received = cb;	
+}
+
+void Slave::set_on_socket_closed(std::function<void()> const& cb)
+{
+	on_socket_closed = cb;
 }
 
 void Slave::process_message(const Message& message)

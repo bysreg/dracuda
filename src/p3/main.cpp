@@ -135,6 +135,9 @@ bool RaytracerApplication::initialize()
 		Slave::read_msg_max_length = sizeof(cudaScene);
 		slave = &Slave::start(options.host);
 		slave->set_on_message_received(on_slave_receive_message);
+		slave->set_on_socket_closed([](){
+			exit(EXIT_FAILURE);
+		});
 		slave->run();
 	}	
 

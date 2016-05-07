@@ -43,6 +43,7 @@ public:
 
 	// callbacks
 	void set_on_message_received(std::function<void(const Message&)> const& cb);
+	void set_on_socket_closed(std::function<void()> const& cb);
 
 private:
 	boost::asio::io_service& io_service;
@@ -53,6 +54,7 @@ private:
 
 	// callbacks
 	std::function<void(const Message&)> on_message_received;
+	std::function<void()> on_socket_closed;
 	
 	void do_connect(tcp::resolver::iterator endpoint_iterator);
 	void do_read_header();
