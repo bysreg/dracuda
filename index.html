@@ -33,6 +33,95 @@
 <p>We are going to create a cloud-based real-time CUDA ray tracer application framework which helps developing graphics demanding applications.</p>
 
 <h3>
+<a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Load Balancer</h3>
+
+<p>We created several load balancer algorithm.</p>
+
+<ul>
+<li>
+<h4>Equal Division</h4>
+<p>
+In the beginning of the program, for a certain number of frame, dracuda will divide the workload equally to all nodes. This is because dracuda doesn't yet know anything about the connected nodes.
+</p>
+</li>
+
+<li>
+<h4>Naive Division</h4>
+<p>
+This is our first stab of implementing load balancer. We end up not using this. This algorithm will simply give bigger workload to node with smaller response time, which we know from the previous frame. This algorithm is prone to sudden change of node's response time. 
+</p>
+</li>
+
+<li>
+<h4>AB Division</h4>
+<p>
+We realize we can't just rely on the previous frame's information. We collect for each slave, their average network latency and their average rendering factor. Rendering factor is value we got from dividing rendering latency (the slaves send the rendering latency info to master) with the workload. So bigger rendering factor means slower compute capability.</p>
+
+<p>
+The slave's response time could be computed with : y = A * Bx. With A is the slave's average network latency (we assume it is not influenced by the workload), B is the slave's average rendering factor, and x is the workload. The goal of the algorithm is to find the same y for all slaves by varying the x for each slaves. The algorithm runs with O(n) time.</p>
+<p>
+
+<p>
+For monday presentation, we will create a better grapth to illustrate the data, but for now, we have these data : </p> 
+
+<p>Machines : </p>
+
+	<ul>
+	<li>
+	ghc41 : NVIDIA GTX 780 GPU
+	</li>
+	<li>
+	ghc42, ghc43, ghc32, ghc33 : NVIDIA GTX 670 GPU
+	</li>
+	</ul>
+
+
+<p>2 Slaves, ghc41 & ghc42 (NVIDIA GTX) : </p>
+
+	<ul>
+		<li>
+			Load Balancing Off (Equal Division): 
+			<p>
+			<b>Slave-0</b> </br>
+			Response time:0.0235545 </br>
+			Rendering latency: 0.0133358</br>
+			Average network latency:0.0121292</br>
+			Average rendering factor:4.63063e-05</br>
+
+			<b>Slave-1</b> </br>
+			Response time:0.0330588 </br>
+			Rendering latency: 0.0198509</br>
+			Average network latency:0.0131452 </br>
+			Average rendering factor:6.59128e-05</br>
+			</p>
+		</li>
+		<li>
+			AB division : 
+			<p>
+			<b>Slave-0</b> </br>
+			Response time:0.0332405 </br>
+			Rendering latency: 0.0166288</br>
+			Average network latency:0.0127753</br>
+			Average rendering factor:4.68121e-05</br>
+
+			<b>Slave-1</b> </br>
+			Response time:0.0302952 </br>
+			Rendering latency: 0.0164119</br>
+			Average network latency:0.0127797</br>
+			Average rendering factor:6.67132e-05</br>
+			</p>
+		</li>
+	</ul>
+
+	
+
+</p>
+
+</li>
+
+</ul>
+
+<h3>
 <a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Background</h3>
 
 <p>In computer graphics, ray tracing is a technique for generating an image by tracing the path of light through pixels in an image plane and simulating the effects of its encounters with virtual objects. As such, ray tracing is able to simulate necessary effects to create photorealistic images. However, a high-quality ray tracing can take very long time to render, and is not suitable for real-time applications.
