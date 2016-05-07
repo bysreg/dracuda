@@ -20,14 +20,14 @@ inline __host__ __device__ float3 quaternionXvector(float4 q, float3 vec)
 	return vec + uv + uuv;
 }
 
-inline __device__ float3 pow_vec (float3 vec, float value)
+inline __host__ __device__ float3 quaternionXCvector(float4 q, float3 vec)
 {
-	return make_float3(powf(vec.x, value), powf(vec.y, value), powf(vec.z, value));
-}
-
-inline __host__ __device__ float4 quaternionConjugate(float4 q)
-{
-	return make_float4(-q.x, -q.y, -q.z, q.w);
+	float3 qvec = make_float3(-q.x, -q.y, -q.z);
+	float3 uv = cross(qvec, vec);
+	float3 uuv = cross(qvec, uv);
+	uv *= (2.0 * q.w);
+	uuv *= 2.0;
+	return vec + uv + uuv;
 }
 
 __constant__ CudaScene cuScene;
@@ -46,15 +46,6 @@ void bindEnvmap (cudaArray * array, cudaChannelFormatDesc &channelDesc)
 
 __device__ float sphereIntersectionTest(float3 ray_d, float3 ray_e)
 {
-		float A = dot(ray_d, ray_d);
-		float B = dot(ray_d, ray_e);
-		float C = dot(ray_e, ray_e) - 1;
-		float B24AC = B * B - A * C;
-		if (B24AC >= 0) {
-			float SB24AC = sqrt(B24AC);
-			return (-B - SB24AC) / A;
-		}
-		return -1;
 }
 
 __device__ float sphereShadowTest(float3 ray_d, float3 ray_e)
@@ -99,19 +90,6 @@ __device__ float planeIntersectionTestZ(float3 ray_d, float3 ray_e, int geom)
 	return t;
 }
 
-__device__ float3 doEnvironment( float3 rd )
-{
-	float r = 1 / 3.1415926 * acos(rd.z) / sqrt(rd.x * rd.x + rd.y * rd.y);
-	
-	float4 color_raw = tex2D(envmap, rd.x * r / 2 + 0.5, rd.y * r / 2 + 0.5);
-
-	float3 color = make_float3(color_raw.x, color_raw.y, color_raw.z);
-
-	//float3 color = make_float3(color_raw.x / 255.0, color_raw.y / 255.0, color_raw.z / 255.0);
-	//return make_float3(500000.0, 0, 0);
-	return 24 * make_float3(powf(color.x, 2.2), powf(color.y, 2.2), powf(color.z, 2.2));
-}
-
 __device__ float distanceToSegment( float2 a, float2 b, float2 p )
 {
 	float2 pa = p - a;
@@ -144,37 +122,26 @@ __device__ float circle2(float2 pos, float2 center, float radius, float dist, fl
 	return k;
 }
 	
-__device__ float sign(float x)
-{
-	if (x > 0.0)
-		return 1.0;
-	else
-		return -1.0;
-}
-
-
 __device__ float trace_shadow(float3 ray_e, float3 ray_d)
 {
 	// Spheres Itest
-	float res = 1.0, t = 0.0;
+	float res = 1.0, t;
 	for (int i = 0; i < SPHERES; i++) {
-		float3 t_ray_d = ray_d;
-		float3 t_ray_e = ray_e - cuScene.ball_position[i];
 		// Intersection test
-		t = sphereShadowTest(t_ray_d, t_ray_e);
+		t = sphereShadowTest(ray_d, ray_e - cuScene.ball_position[i]);
 		res = min(t, res);
 	}
 	return res;
 }
 
-__device__ float3 do_material (int geom, float3 diffuse, float3 normal, float3 pos)
+__device__ float3 do_material (int geom, float3 pos)
 {
-	float3 mate = diffuse;
+	float3 mate = cuConstants.sphere_colors[geom];
 	float3 cue_color = make_float3(0.29, 0.27, 0.25);
 	if (geom < SOLIDS) {
-		mate = lerp(diffuse, cue_color, smoothstep(0.9, 0.91, abs(pos.y)));
+		mate = lerp(mate, cue_color, smoothstep(0.9, 0.91, abs(pos.y)));
 	} else {
-		mate = lerp(diffuse, cue_color, smoothstep(0.9, 0.91, abs(pos.y)) + smoothstep(0.55, 0.56, abs(pos.z)));
+		mate = lerp(mate, cue_color, smoothstep(0.9, 0.91, abs(pos.y)) + smoothstep(0.55, 0.56, abs(pos.z)));
 	}
 	float d1 = 1.0, d2 = 1.0, d3 = 1.0, d4 = 1.0, k1 = 1.0, k2 = 1.0;
 	float d, k;
@@ -280,22 +247,20 @@ void curandSetupKernel()
 	int w = y * WIDTH + x;
 	curand_init(1578, w, 0, cuConstants.curand + w);
 }
-		/*
-		float di = (x + (sampleX + 0.5) / NSAMPLES) / WIDTH * 2 - 1;
-		float dj = (y + (sampleY + 0.5) / NSAMPLES) / HEIGHT * 2 - 1;
-		*/
 
 __device__ float sphereIntersectionTestAll(float3 ray_d, float3 ray_e, int &geom)
 {
 	float tmin = 10000.0;
 	// Spheres Itest
 	for (int i = 0; i < SPHERES; i++) {
-		float3 t_ray_d = ray_d;
 		float3 t_ray_e = ray_e - cuScene.ball_position[i];
-		t_ray_d = quaternionXvector(quaternionConjugate(cuScene.ball_orientation[i]), t_ray_d);
-		t_ray_e = quaternionXvector(quaternionConjugate(cuScene.ball_orientation[i]), t_ray_e);
 		// Intersection test
-		float t = sphereIntersectionTest(t_ray_d, t_ray_e);
+		float t = 10000.0;
+		float B = dot(ray_d, t_ray_e);
+		float C = dot(t_ray_e, t_ray_e) - 1;
+		float B24AC = B * B - C;
+		if (B24AC >= 0)
+			t = -B - sqrt(B24AC);
 		if (t > EPS && t < tmin) {
 			geom = i;
 			tmin = t;
@@ -398,40 +363,26 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 			}
 			shadow_factor /= (SHADOW_RAYS + 0.0);
 			if (IsSpheres) {
-				float3 orig_hit = quaternionXvector(quaternionConjugate(cuScene.ball_orientation[geom]), hit - cuScene.ball_position[geom]);
-				float3 diffuse = cuConstants.sphere_colors[geom];
-
-				// Direct diffuse
-				float3 surface_color = make_float3(0, 0, 0);
-				surface_color += shadow_factor * 2.9;
-
-				float3 m = do_material(geom, diffuse, normal, orig_hit);
+				float3 orig_hit = quaternionXCvector(cuScene.ball_orientation[geom], hit - cuScene.ball_position[geom]);
+				float3 m = do_material(geom, orig_hit);
 				// Bounce
-				surface_color += 1.5f * clamp(0.3f-0.7f*normal.y,0.0f,1.0f)*make_float3(0.0,0.2,0.0);
+				float3 surface_color = shadow_factor * 2.9f + 1.5f * clamp(0.3f-0.7f*normal.y,0.0f,1.0f)*make_float3(0.0,0.2,0.0);
 				// Specular
 				float fre = 0.04 + 4 * powf(clamp( 1.0 + dot(normal, ray_d), 0.0f, 1.0f ), 5.0f) ;
-				float step = 0.0;
 				float3 ref = normalize(ray_d - 2 * normal * dot(normal, ray_d));
-				//if (geom <= 3)
 				int geom_ref = -1;
 
 				float tmin = sphereIntersectionTestAll(ref, hit, geom_ref);
 				float3 fresnel_color = make_float3(0, 0, 0);
 				if (geom_ref >= 0) {
 					float3 hit_ref = ref * tmin + hit;
-					float3 orig_hit_ref = quaternionXvector(quaternionConjugate(cuScene.ball_orientation[geom]), hit_ref - cuScene.ball_position[geom]);
-					float3 m_ref = do_material(geom_ref, cuConstants.sphere_colors[geom_ref], normal, orig_hit_ref);
+					float3 orig_hit_ref = quaternionXCvector(cuScene.ball_orientation[geom], hit_ref - cuScene.ball_position[geom]);
+					float3 m_ref = do_material(geom_ref, orig_hit_ref);
 					fresnel_color = m_ref;
-					//surface_color = make_float3(0, 0, 0);
 				}
 				float3 light_dir = normalize(make_float3(0.7, 1.0, -0.8));
-
-
-
-				//surface_color += 9.0 * fre * fresnel_color;// * doEnvironment(ref);
-				color += surface_color * m + fre * fresnel_color / 2;
-				color += (make_float3(0.3, 0.3, 0.3) + m) * powf(clamp(dot(light_dir, ref), 0.0f, 1.0f), 50.0f);
-				accumulated_color += color;
+				accumulated_color += surface_color * m + fre * fresnel_color / 2;
+				accumulated_color += make_float3(0.3, 0.3, 0.3) * powf(clamp(dot(light_dir, ref), 0.0f, 1.0f), 50.0f);
 			} else {
 				accumulated_color += cuConstants.plane_colors[geom] * shadow_factor;
 			}
