@@ -22,7 +22,6 @@ struct PoolScene {
 	float time;
 	void initialize();
 	void update(float delta_time);
-	void toDataBuffer(float *buffer);
 	void toCudaScene(CudaScene &scene);
 };
 
