@@ -25,9 +25,9 @@ void LoadBalancer::calc(const RaytracerApplication* app, SlaveInfo* input, doubl
 		}
 
 		// pick one of the techniques	
-		calc_equal(input, output, size);
+		// calc_equal(input, output, size);
 		// calc_naive(input, output, size);
-		// calc_ab(input, output, size, HEIGHT);
+		calc_ab(input, output, size, HEIGHT);
 	}	
 
 	std::cout<<"weight : ";
