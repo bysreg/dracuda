@@ -14,8 +14,6 @@
       <h1 class="project-name">DRacuda</h1>
       <h2 class="project-tagline"></h2>
       <a href="https://github.com/bysreg/pcap_cmu_a5" class="btn">View on GitHub</a>
-      <a href="https://github.com/bysreg/pcap_cmu_a5/zipball/master" class="btn">Download .zip</a>
-      <a href="https://github.com/bysreg/pcap_cmu_a5/tarball/master" class="btn">Download .tar.gz</a>
     </section>
 
     <section class="main-content">
@@ -27,27 +25,27 @@
 
 <h3><a href="Checkpoint.pdf">Checkpoint Report</a></h3>
 
-<h3>
-<a id="designer-templates" class="anchor" href="#designer-templates" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Summary</h3>
+<h3>Summary</h3>
 
-<p>We are going to create a cloud-based real-time CUDA ray tracer application framework which helps developing graphics demanding applications.</p>
-<p>We have developed an interactive CPU (SIMD)/GPU hybrid raytracing demo, and implemented an adaptive load-balancing algorithm </p>
+<p>We have developed a cloud-based CPU (SIMD)/GPU hybrid interactive raytracing demo, using an adaptive load-balancing algorithm which partitions work among nodes without knowing their computing power in advance.</p>
 
-<h3>
-<a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Background</h3>
+<h3>Achievements</h3>
+
+<p>We started with hand-crafting a single-threaded pool table raytracing demo, and parallelized it with CUDA and CPU multi-threaded SIMD. The CUDA version achieves a MEASURING speedup, and the SIMD version has a MEASURING speedup. However, as the speedups on the same node are different, and the ratio of GPU/CPU computing power can also differ across nodes, we decided to implement a general heterogeneous load-balancing algorithm, which estimates a computing device's overall response time as a function of workload: y = f(x). Using different functions to estimate results in different load-balancing algorithms. We will give details of different algorithms we have tried in the following section.
+
+<h3>Background</h3>
 
 <p>In computer graphics, ray tracing is a technique for generating an image by tracing the path of light through pixels in an image plane and simulating the effects of its encounters with virtual objects. As such, ray tracing is able to simulate necessary effects to create photorealistic images. However, a high-quality ray tracing can take very long time to render, and is not suitable for real-time applications.
 </p>
+<p>Essential operations in ray tracing, such as intersection tests, transformations, vector math and shading are all data-parallel operations, and therefore are SIMD friendly. Making use of SIMD processors like GPU or CPU SIMD instructions can immensely improve the speed of raytracing.</p>
 
-<p>GPU, as a powerful SIMD processing unit, performs well in data-parallel and math-intensive tasks. Essential operations in ray tracing, such as intersection tests, transformations, vector math and shading are all GPU-friendly. According to several benchmarks provided by developers in universities, GPU ray tracers implementations had 100x - 300x speedup compared to CPU counterparts. It is then proved that GPU is a natural choice for ray tracing and is much more suitable than CPU.</p>
+<p>Many computers nowadays have both CPU and GPU installed. However, most of the time they are idle or poorly utilized. To extract maximum performance from a node, using both the CPU and GPU on the same node is definitely better than using either of them.</p>
 
-<p>With the advent of cloud computing, it is possible to access massive computing resources without actually purchasing them. Even GPU computing instances have become available in the past few years. Therefore, with enough GPUs, real-time rendering is possible without sacrificing the quality.</p>
+<p>With the advent of cloud computing, it is possible to access massive computing resources without actually purchasing them. Even GPU computing instances have become available in the past few years. Therefore, with enough cloud instances, real-time rendering is possible without sacrificing the quality. </p>
 
 <p>Load balancing across heterogeneous nodes can be difficult. That is largely due to the differences of network latency and GPU performance among nodes. In order to balance the overall latency, which we estimate as network latency + work load * rendering time per unit work load, we will gather the rendering time and latency from worker nodes, and use an adaptive linear regression algorithm to predict the network latency and unit rendering time of next frame, and then assign the work load of each node accordingly.</p>
 
 <p>The architecture of this project is simple. Worker nodes are responsible for rendering. They take scene data and the work assignment information (like from Row A - Row B) as input, and send back the rendered portion of the image (compressed). The local client divides the screen into tiles, sends the scene data and work allocation to worker nodes, and collects all the image parts from worker nodes and display the frames. It also adjusts the work assignment each frame using the adaptive algorithm we mentioned above.</p>
-
-<p>We might potentially use k-d tree for acceleration structure if the scene is large enough. But for general use cases, we would use plain intersection tests to keep the raytracer SIMD-friendly.</p>
 
 <h3>
 
@@ -57,7 +55,7 @@ Performance
 <ul>
 <li>Network Latency. The latency from Pittsburgh to Amazon US East server is 23 ms. A round-trip would be 46 ms. For a player to not experience lag, the latency has to be below 100 ms, so that restricts the rendering time under 50 ms. Besides, we are aiming for a frame rate of at least 30 FPS, so our goal is to limit the rendering time of each frame to below 33 ms, to ensure the throughput is enough for the 30 FPS experience.</li>
 <li>Load Balancing Algorithm. Different compute nodes have different rendering performance and network latency. Therefore it is challenging to balance the overall latency of all nodes. We will continuously gather analytics data from nodes to adaptively balance the latency.</li>
-<li>Efficient GPU ray tracing implementation. Even though ray tracing is highly parallelizable, there are branch divergences in intersection tests, refraction / reflections, which can cause huge performance slowdown if not handled properly.</li>
+<li>Efficient GPU and CPU-SIMD ray tracing implementation. Even though ray tracing is highly parallelizable, there are branch divergences in intersection tests, refraction / reflections, which can cause huge performance slowdown if not handled properly.</li>
 </ul>
 Graphics
 <ul>
@@ -68,7 +66,7 @@ Graphics
 
 <a id="creating-pages-manually" class="anchor" href="#creating-pages-manually" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a><h3>Resources</h3>
 <p>
-We have taken 15-662 Computer Graphics and developed a ray tracer on CPU. We will rewrite the ray tracer on GPU. During the development, we will use GHC clusters with GPU to test. We will also make sure it works on Amazon EC2, and will run the demo game on it.
+We have taken 15-662 Computer Graphics and developed a ray tracer on CPU. We will write a single-threaded hardcoded version of the pool scene, and parallelize it using both CUDA and multi-threaded SIMD. During the development, we will use GHC clusters with GPU to test. We will also make sure it works on Amazon EC2, and will run the demo game on it.
 </p>
 
 <h3>Goals and Deliverables</h3>
