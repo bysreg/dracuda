@@ -10,6 +10,8 @@
 #define HEIGHT 576
 #define MAX_SLAVE 20
 
+#define PIXEL_SIZE 3
+
 #define PLANES 9
 #define SPHERES 16
 #define SOLIDS 9

@@ -31,6 +31,8 @@
 #include <cstdlib>
 #include <cmath>
 
+static GLenum PIXEL_FORMAT = GL_RGB;
+
 using namespace std;
 
 PoolScene poolScene;
@@ -51,7 +53,7 @@ static double slaves_weight[MAX_SLAVE] = {0}; // zero initialize array
 static bool app_started = false;
 static RaytracerApplication* s_app = nullptr;
 static int master_render_frame_counter = 0;
-static int master_render_frame_print_time = 10;
+static int master_render_frame_print_time = 20;
 static int master_render_frame_rate_counter_start = 0;
 
 void on_master_connection_started(Connection& conn);
@@ -97,14 +99,14 @@ bool RaytracerApplication::initialize()
 	camera_control.camera = &poolScene.camera;
 	if (!buffer) {
 		if(options.slave) {
-			buffer = new unsigned char [WIDTH * HEIGHT * 4 + slave_buffer_img_offset];
+			buffer = new unsigned char [WIDTH * HEIGHT * PIXEL_SIZE + slave_buffer_img_offset];
 		}else{
-			buffer = new unsigned char [WIDTH * HEIGHT * 4];
+			buffer = new unsigned char [WIDTH * HEIGHT * PIXEL_SIZE];
 		}
 
 		// master needs additional buffer for double buffering
 		if(options.master) {
-			back_buffer = new unsigned char [WIDTH * HEIGHT * 4];
+			back_buffer = new unsigned char [WIDTH * HEIGHT * PIXEL_SIZE];
 		}		
 	}
 
@@ -122,7 +124,7 @@ bool RaytracerApplication::initialize()
 
 		// master's read buffer need to be able to accomodate
 		// image that is being sent from the slave
-		Master::read_msg_max_length = WIDTH * HEIGHT * 4 + 100;
+		Master::read_msg_max_length = WIDTH * HEIGHT * PIXEL_SIZE + 100;
 		master = &Master::start();
 		master->set_on_message_received(on_master_receive_message);
 		master->set_on_connection_started(on_master_connection_started);
@@ -140,6 +142,9 @@ bool RaytracerApplication::initialize()
 		});
 		slave->run();
 	}	
+
+	// test
+	poolScene.balls[0].velocity += Vector3(0.0, 0.0, 10.0);
 
 	return true;
 }
@@ -242,7 +247,7 @@ void RaytracerApplication::render()
 	glColor4d( 1.0, 1.0, 1.0, 1.0 );
 	glRasterPos2f( -1.0f, -1.0f );
 	if (!options.slave) {
-		glDrawPixels( WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, &buffer[0] );
+		glDrawPixels( WIDTH, HEIGHT, PIXEL_FORMAT, GL_UNSIGNED_BYTE, &buffer[0] );
 	}
 }
 
@@ -351,7 +356,7 @@ void on_master_receive_message(int conn_idx, const Message& message)
 
 	// std::cout<<"receive msg " 
 	// 	<< conn_idx << " "
-	// 	<< ((message.body_length() - slave_buffer_img_offset) / 4 / WIDTH) << " "
+	// 	<< ((message.body_length() - slave_buffer_img_offset) / PIXEL_SIZE / WIDTH) << " "
 	// 	<<"dur:"<< si.response_duration << " " 
 	// 	<<"net:"<< si.network_latency  << " " 
 	// 	<<"renlat:"<< si.rendering_latency << " " 
@@ -360,7 +365,7 @@ void on_master_receive_message(int conn_idx, const Message& message)
 	// 	<<std::endl;
 
 	// we receive the image from slave-i	
-	int byte_offset = si.y0 * WIDTH * 4;
+	int byte_offset = si.y0 * WIDTH * PIXEL_SIZE;
 	std::memcpy(s_app->back_buffer + byte_offset, message.body() + slave_buffer_img_offset, message.body_length() - sizeof(double));
 
 	// ======== critical section ============
@@ -370,7 +375,7 @@ void on_master_receive_message(int conn_idx, const Message& message)
 
 	// we could only send the next scene data to slave
 	// only if we have all the image pieces from the slaves
-	int piece_height = ((message.body_length() / 4) / WIDTH);
+	int piece_height = ((message.body_length() / PIXEL_SIZE) / WIDTH);
 	buffer_frame_height += piece_height;
 
 	if(buffer_frame_height >= HEIGHT) 
@@ -404,8 +409,6 @@ void on_slave_receive_message(const Message& message)
 	std::memcpy(&cudaSceneCopy, message.body(), message.body_length());
 	cudaRayTrace(&cudaSceneCopy, s_app->buffer + slave_buffer_img_offset);
 
-	//int offset = cudaSceneCopy.y0 * WIDTH * 4;
-
 	// calculate the rendering latency
 	double rendering_latency = CycleTimer::currentSeconds() 
 		- rendering_start;
@@ -413,10 +416,8 @@ void on_slave_receive_message(const Message& message)
 	// put the rendering time in front of the buffer
 	std::memcpy(s_app->buffer, &rendering_latency, sizeof(rendering_latency));
 
-	//std::string encoded_str = base64_encode(buffer, 4 * WIDTH * HEIGHT);
 	int height = cudaSceneCopy.render_height;
-	slave->send(s_app->buffer, WIDTH * (height) * 4 + sizeof(rendering_latency));	
-	//slave->send(encoded_str);
+	slave->send(s_app->buffer, WIDTH * (height) * PIXEL_SIZE + sizeof(rendering_latency));	
 }
 
 int main( int argc, char* argv[] )
@@ -434,7 +435,7 @@ int main( int argc, char* argv[] )
 	s_app = &app;
 	cout << "master:slave => " << opt.master << ":" << opt.slave << endl;
 
-	float fps = 20.0;
+	float fps = 60.0;
 	const char* title = "DRACUDA";
 
 	if(opt.master) {
