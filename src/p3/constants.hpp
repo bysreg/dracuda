@@ -8,6 +8,7 @@
 
 #define WIDTH 768
 #define HEIGHT 576
+#define MAX_SLAVE 20
 
 #define PLANES 9
 #define SPHERES 16
