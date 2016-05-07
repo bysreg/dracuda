@@ -11,6 +11,10 @@
 
 #define EPS 0.0001
 
+#define NSAMPLES 6
+#define SHADOW_RAYS 5
+
+
 static PoolConstants cuConstants;// = poolConstants;
 static CudaScene cuScene;
 
@@ -222,9 +226,6 @@ inline  static float3 quaternionXCvector(float4 q, float3 vec)
 }
 
 
-#define NSAMPLES 1
-#define SHADOW_RAYS 1
-
  static float sphereIntersectionTestAll(float3 ray_d, float3 ray_e, int &geom)
 {
 	float tmin = 10000.0;
@@ -279,6 +280,7 @@ void singleInitialize()
 
 void singleRayTrace(CudaScene *scene, unsigned char *img)
 {
+	double startTime = CycleTimer::currentSeconds();
 	//CudaScene &cuScene = *scene;
 	cuScene = *scene;
 	cuConstants = poolConstants;
@@ -368,4 +370,5 @@ void singleRayTrace(CudaScene *scene, unsigned char *img)
 	col0.w = 255;
 	*((uchar4 *)img + w) = col0;
 	}
+	printf("CPU rendering time: %lf\n", CycleTimer::currentSeconds() - startTime);
 }
