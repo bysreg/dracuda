@@ -100,19 +100,17 @@ bool RaytracerApplication::initialize()
 		}		
 	}
 
-	cudaScene.fov = 0.785;
-	cudaScene.aspect = (WIDTH + 0.0) / (HEIGHT + 0.0);
-	cudaScene.near_clip = 0.01;
-	cudaScene.far_clip = 200.0;
 	if (!options.master && !options.slave) {
 		cudaScene.y0 = 0;
 		cudaScene.render_height = HEIGHT;
 	}
 
+	/*
 	cudaArray *cu_2darray;
 	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat );
 	LoadEnvmap(&cu_2darray, "images/stpeters_probe.pfm");
 	bindEnvmap(cu_2darray, channelDesc);
+	*/
 
 	// CUDA part
 	gpuErrchk(cudaMalloc((void **)&cudaBuffer, 4 * HEIGHT * WIDTH));

@@ -308,12 +308,14 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 	curandState *curand = cuConstants.curand + w;
 
 	// Calc Ray
+	/*
 	float3 dir = quaternionXvector(*((float4 *)cuScene.cam_orientation), make_float3(0, 0, -1));
 	float3 up = quaternionXvector(*((float4 *)cuScene.cam_orientation), make_float3(0, 1, 0));
 	float AR = cuScene.aspect;
-	float3 cR = cross(dir, up);
-	float3 cU = cross(cR, dir);
+	float3 cR = cross(dir, up); // 1, 0, 0
+	float3 cU = cross(cR, dir); // 0, 1, 0
 	float dist = tan(cuScene.fov / 2.0);
+	*/
 	float3 accumulated_color = make_float3(0.0, 0.0, 0.0);
 
 	// Jittered Sampling
@@ -322,8 +324,8 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 	for (int sampleY = 0; sampleY < NSAMPLES; sampleY++) {
 		float di = (x + (sampleX + curand_uniform(curand)) / NSAMPLES) / WIDTH * 2 - 1;
 		float dj = (y + (sampleY + curand_uniform(curand)) / NSAMPLES) / HEIGHT * 2 - 1;
-		float3 ray_d = normalize(dir + dist * (dj * cU + di * AR * cR));
-		float3 ray_e = *((float3 *) cuScene.cam_position);
+		float3 ray_d = normalize(cuScene.dir + dj * cuScene.cU + di * cuScene.ARcR);
+		float3 ray_e = cuScene.cam_position;
 
 		int geom = -1, geom2 = -1;
 		bool IsSpheres = true;

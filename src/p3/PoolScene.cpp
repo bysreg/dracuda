@@ -52,10 +52,18 @@ void PoolScene::initialize()
 	camera.far_clip = 200.0;
 }
 
+static void VectorToFloat3(Vector3 v, float3 &f3)
+{
+	f3 = make_float3(v.x, v.y, v.z);
+}
+
 void PoolScene::toCudaScene(CudaScene &scene)
 {
-	camera.position.to_array(scene.cam_position); 
-	camera.orientation.to_array(scene.cam_orientation);
+	float dist = tan(camera.fov / 2.0);
+	VectorToFloat3(camera.orientation * Vector3(0, 0, -1), scene.dir);
+	VectorToFloat3(camera.orientation * Vector3(0, dist, 0), scene.cU);
+	VectorToFloat3(camera.orientation * Vector3(dist * camera.aspect, 0, 0), scene.ARcR);
+	VectorToFloat3(camera.position, scene.cam_position); 
 	for (int i = 0; i < SPHERES; i++) {
 		Vector3 v = balls[i].position;
 		scene.ball_position[i] = make_float3(v.x, v.y, v.z);

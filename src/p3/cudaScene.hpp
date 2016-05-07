@@ -14,13 +14,11 @@ struct CudaScene
 	float3 ball_position[SPHERES];
 
 	// Camera
-	float cam_position[3];
-	float cam_orientation[4];
-	float fov;
-	float aspect;
-	float near_clip;
-	float far_clip;
-	
+	float3 cam_position;
+	float3 dir;
+	float3 cU;
+	float3 ARcR;
+
 	int y0; // render offset
 	int render_height;
 };
