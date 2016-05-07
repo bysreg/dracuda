@@ -209,8 +209,9 @@ void RaytracerApplication::update( float delta_time )
 		time += delta_time;
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);
-		simdRayTrace(&cudaScene, buffer);
+		//simdRayTrace(&cudaScene, buffer);
 		//singleRayTrace(&cudaScene, buffer);
+		cudaRayTrace(&cudaScene, buffer);
 	}
 }
 

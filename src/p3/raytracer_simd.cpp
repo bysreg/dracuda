@@ -281,6 +281,7 @@ void simdInitialize()
 	posix_memalign((void **)&printBuffer, 32, sizeof(float) * 8);
 }
 
+/*
 void printVec(__m256 vec)
 {
 	_mm256_store_ps(printBuffer, vec);
@@ -288,14 +289,17 @@ void printVec(__m256 vec)
 		printf("V%d: %f ", i, printBuffer[i]);
 	printf("\n");
 }
+*/
 
 void simdRayTrace(CudaScene *scene, unsigned char *img)
 {
 	for (int y = 0; y < HEIGHT; y++) {
 		for (int x0 = 0; x0 < HEIGHT; x0 += 8) {
+			/*
 			__m256 x = _mm256_set1_ps(0.5f);
 			__m256 y = _mm256_set1_ps(0.7f);
 			__m256 z = _mm256_add_ps(x, y);
+			*/
 			//printVec(z);
 		}
 	}
