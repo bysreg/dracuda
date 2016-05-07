@@ -11,9 +11,10 @@
 
 #define EPS 0.0001
 
-unsigned char *cudaBuffer;
+PoolConstants cuConstants;// = poolConstants;
+CudaScene cuScene;
 
-inline __device__ float3 quaternionXvector(float4 q, float3 vec)
+inline  static float3 quaternionXvector(float4 q, float3 vec)
 {
 	float3 qvec = make_float3(q.x, q.y, q.z);
 	float3 uv = cross(qvec, vec);
@@ -23,7 +24,7 @@ inline __device__ float3 quaternionXvector(float4 q, float3 vec)
 	return vec + uv + uuv;
 }
 
-inline __device__ float3 quaternionXCvector(float4 q, float3 vec)
+inline  static float3 quaternionXCvector(float4 q, float3 vec)
 {
 	float3 qvec = make_float3(-q.x, -q.y, -q.z);
 	float3 uv = cross(qvec, vec);
@@ -33,10 +34,7 @@ inline __device__ float3 quaternionXCvector(float4 q, float3 vec)
 	return vec + uv + uuv;
 }
 
-__constant__ CudaScene cuScene;
-__constant__ PoolConstants cuConstants;
-
-__device__ float sphereShadowTest(float3 ray_d, float3 ray_e)
+ static float sphereShadowTest(float3 ray_d, float3 ray_e)
 {
 	float res = 1.0;
 	float b = -dot(ray_e, ray_d);
@@ -49,7 +47,7 @@ __device__ float sphereShadowTest(float3 ray_d, float3 ray_e)
 	return res;
 }
 
-__device__ float planeIntersectionTestX(float3 ray_d, float3 ray_e, int geom)
+ static float planeIntersectionTestX(float3 ray_d, float3 ray_e, int geom)
 {
 	float t = (cuConstants.positions[geom] - ray_e.x) / ray_d.x;
 	float3 hit = t * ray_d + ray_e;
@@ -59,7 +57,7 @@ __device__ float planeIntersectionTestX(float3 ray_d, float3 ray_e, int geom)
 	return t;
 }
 
-__device__ float planeIntersectionTestY(float3 ray_d, float3 ray_e, int geom)
+ static float planeIntersectionTestY(float3 ray_d, float3 ray_e, int geom)
 {
 	float t = (cuConstants.positions[geom] - ray_e.y) / ray_d.y;
 	float3 hit = t * ray_d + ray_e;
@@ -68,7 +66,7 @@ __device__ float planeIntersectionTestY(float3 ray_d, float3 ray_e, int geom)
 		t = -1;
 	return t;
 }
-__device__ float planeIntersectionTestZ(float3 ray_d, float3 ray_e, int geom)
+ static float planeIntersectionTestZ(float3 ray_d, float3 ray_e, int geom)
 {
 	float t = (cuConstants.positions[geom] - ray_e.z) / ray_d.z;
 	float3 hit = t * ray_d + ray_e;
@@ -78,7 +76,7 @@ __device__ float planeIntersectionTestZ(float3 ray_d, float3 ray_e, int geom)
 	return t;
 }
 
-__device__ float distanceToSegment( float2 a, float2 b, float2 p )
+ static float distanceToSegment( float2 a, float2 b, float2 p )
 {
 	float2 pa = p - a;
 	float2 ba = b - a;
@@ -86,14 +84,14 @@ __device__ float distanceToSegment( float2 a, float2 b, float2 p )
 	return length( pa - ba*h );
 }
 
-__device__ float circle2(float2 pos, float2 center, float radius, float dist, float begin, float interval)
+ static float circle2(float2 pos, float2 center, float radius, float dist, float begin, float interval)
 {
 	float2 diff = pos - center;
 	float angle = atan2(diff.y, diff.x) - begin;
 	if (angle < 0.0)
 		angle = angle + 2.0 * PI;
 	float d = sqrt(dot(diff, diff));
-	float k = abs(d - radius) / dist;
+	float k = fabs(d - radius) / dist;
 	if (angle > interval)
 		k = 1.0;
 	dist = dist * dist / 1.07;
@@ -110,7 +108,7 @@ __device__ float circle2(float2 pos, float2 center, float radius, float dist, fl
 	return k;
 }
 	
-__device__ float trace_shadow(float3 ray_e, float3 ray_d)
+ static float trace_shadow(float3 ray_e, float3 ray_d)
 {
 	// Spheres Itest
 	float res = 1.0, t;
@@ -122,14 +120,14 @@ __device__ float trace_shadow(float3 ray_e, float3 ray_d)
 	return res;
 }
 
-__device__ float3 do_material (int geom, float3 pos)
+ static float3 do_material (int geom, float3 pos)
 {
 	float3 mate = cuConstants.sphere_colors[geom];
 	float3 cue_color = make_float3(0.29, 0.27, 0.25);
 	if (geom < SOLIDS) {
-		mate = lerp(mate, cue_color, smoothstep(0.9, 0.91, abs(pos.y)));
+		mate = lerp(mate, cue_color, smoothstep(0.9, 0.91, fabs(pos.y)));
 	} else {
-		mate = lerp(mate, cue_color, smoothstep(0.9, 0.91, abs(pos.y)) + smoothstep(0.55, 0.56, abs(pos.z)));
+		mate = lerp(mate, cue_color, smoothstep(0.9, 0.91, fabs(pos.y)) + smoothstep(0.55, 0.56, fabs(pos.z)));
 	}
 	float d1 = 1.0, d2 = 1.0, d3 = 1.0, d4 = 1.0, k1 = 1.0, k2 = 1.0;
 	float d, k;
@@ -217,26 +215,17 @@ __device__ float3 do_material (int geom, float3 pos)
 		default:
 			break;
 	}
-	d = min(min(d1, d4), min(d2, d3));
-	k = min(k1, k2);
+	d = fminf(fminf(d1, d4), fminf(d2, d3));
+	k = fminf(k1, k2);
 	mate *= smoothstep(0.04, 0.045, d) * smoothstep(0.88, 1.0, k);
 	return mate;
 }
 
 
-#define NSAMPLES 5
+#define NSAMPLES 1
 #define SHADOW_RAYS 1
 
-__global__
-void curandSetupKernel()
-{
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
-	int w = y * WIDTH + x;
-	curand_init(1578, w, 0, cuConstants.curand + w);
-}
-
-__device__ float sphereIntersectionTestAll(float3 ray_d, float3 ray_e, int &geom)
+ static float sphereIntersectionTestAll(float3 ray_d, float3 ray_e, int &geom)
 {
 	float tmin = 10000.0;
 	// Spheres Itest
@@ -257,7 +246,7 @@ __device__ float sphereIntersectionTestAll(float3 ray_d, float3 ray_e, int &geom
 	return tmin;
 }
 
-__device__
+ static
 float planeIntersectionTestAll(float3 ray_d, float3 ray_e, int &geom, float tmin)
 {
 	// Planes Itest
@@ -283,26 +272,26 @@ float planeIntersectionTestAll(float3 ray_d, float3 ray_e, int &geom, float tmin
 	return tmin;
 }
 
-__global__
-void cudaRayTraceKernel (unsigned char *img, int y_start)
+void singleInitialize()
 {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y + y_start;
+
+}
+
+void singleRayTrace(CudaScene *scene, unsigned char *img)
+{
+	//CudaScene &cuScene = *scene;
+	cuScene = *scene;
+	cuConstants = poolConstants;
+
+	for (int x = 0; x < WIDTH; x++)
+	for (int y = 0; y < HEIGHT; y++) {
 	int w = y * WIDTH + x;
-
-	if(w >= WIDTH * HEIGHT)
-		return;
-
-	curandState *curand = cuConstants.curand + w;
-
-	// Calc Ray
 	float3 accumulated_color = make_float3(0.0, 0.0, 0.0);
-
 	// Jittered Sampling
 	for (int sampleX = 0; sampleX < NSAMPLES; sampleX++)
 	for (int sampleY = 0; sampleY < NSAMPLES; sampleY++) {
-		float di = (x + (sampleX + curand_uniform(curand)) / NSAMPLES) / WIDTH * 2 - 1;
-		float dj = (y + (sampleY + curand_uniform(curand)) / NSAMPLES) / HEIGHT * 2 - 1;
+		float di = (x + (sampleX + random_uniform()) / NSAMPLES) / WIDTH * 2 - 1;
+		float dj = (y + (sampleY + random_uniform()) / NSAMPLES) / HEIGHT * 2 - 1;
 		float3 ray_d = normalize(cuScene.dir + dj * cuScene.cU + di * cuScene.ARcR);
 		float3 ray_e = cuScene.cam_position;
 
@@ -331,9 +320,9 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 			float shadow_factor = 0.0;
 			for (int i = 0; i < SHADOW_RAYS; i++) {
 				float3 sdir, tdir;
-				float u = curand_uniform(curand);
-				float phi = 2 * 3.1415926535 * curand_uniform(curand);
-				if (abs(normal.x) < 0.5) {
+				float u = random_uniform();
+				float phi = 2 * 3.1415926535 * random_uniform();
+				if (fabs(normal.x) < 0.5) {
 					sdir = cross(normal, make_float3(1, 0, 0));
 				} else {
 					sdir = cross(normal, make_float3(0, 1, 0));
@@ -371,47 +360,12 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 			accumulated_color += make_float3(0.7, 0.9, 1.0);
 		}
 	}
-	
 	accumulated_color /= NSAMPLES * NSAMPLES;
 	uchar4 col0;
-	col0.x = clamp(__powf(accumulated_color.x, 0.45) * 255, 0.0, 255.0);
-	col0.y = clamp(__powf(accumulated_color.y, 0.45) * 255, 0.0, 255.0);
-	col0.z = clamp(__powf(accumulated_color.z, 0.45) * 255, 0.0, 255.0);
+	col0.x = clamp(powf(accumulated_color.x, 0.45) * 255, 0.0, 255.0);
+	col0.y = clamp(powf(accumulated_color.y, 0.45) * 255, 0.0, 255.0);
+	col0.z = clamp(powf(accumulated_color.z, 0.45) * 255, 0.0, 255.0);
 	col0.w = 255;
-	*((uchar4 *)img + w - WIDTH * y_start) = col0;
-	
-}
-
-void cudaInitialize()
-{
-	initialize_constants();
-	gpuErrchk(cudaMalloc((void **)&cudaBuffer, 4 * HEIGHT * WIDTH));
-	gpuErrchk(cudaMalloc((void **)&poolConstants.curand, sizeof(curandState) * WIDTH * HEIGHT));
-	gpuErrchk(cudaMemcpyToSymbol(cuConstants, &poolConstants, sizeof(PoolConstants)));
-	dim3 dimBlock(16, 16);
-	dim3 dimGrid(WIDTH / 16, HEIGHT / 16);
-	curandSetupKernel<<<dimGrid, dimBlock>>>();
-	cudaDeviceSynchronize();
-}
-
-void cudaRayTrace(CudaScene *scene, unsigned char *img)
-{
-	//printf("CudaRayTrace\n");
-	//printf("%p\n", scene);
-	gpuErrchk(cudaMemcpyToSymbol(cuScene, scene, sizeof(CudaScene)));
-	int height = scene->render_height;
-
-	dim3 dimBlock(16, 16);
-	dim3 dimGrid(WIDTH / 16, (height + 16 - 1) / 16);
-
-	double startTime = CycleTimer::currentSeconds();
-	cudaRayTraceKernel<<<dimGrid, dimBlock>>>(cudaBuffer, scene->y0);
-	cudaDeviceSynchronize();
-	printf("CUDA rendering time: %lf\n", CycleTimer::currentSeconds() - startTime);
-
-	cudaError_t error = cudaGetLastError();
-	if ( cudaSuccess != error )
-			printf( "Error: %d\n", error );
-	gpuErrchk(cudaMemcpy(img, cudaBuffer, 4 * WIDTH * height , cudaMemcpyDeviceToHost));
-	//gpuErrchk(cudaMemcpy(img, cudaBuffer + (scene->y0 * WIDTH * 4), 4 * WIDTH * height, cudaMemcpyDeviceToHost));
+	*((uchar4 *)img + w) = col0;
+	}
 }

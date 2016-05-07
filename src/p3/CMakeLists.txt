@@ -7,7 +7,7 @@ else()
 endif()
 set(CUDA_PROPAGATE_HOST_FLAGS OFF)
 
-CUDA_ADD_EXECUTABLE(p3 base64.cpp application.cpp camera_roam.cpp PoolScene.cpp imageio.cpp main.cpp raytracer_cuda.cu master.cpp master.hpp slave.hpp slave.cpp constants.cpp load_balancer.cpp)
+CUDA_ADD_EXECUTABLE(p3 base64.cpp application.cpp camera_roam.cpp PoolScene.cpp imageio.cpp main.cpp raytracer_cuda.cu master.cpp master.hpp slave.hpp slave.cpp constants.cpp load_balancer.cpp raytracer_single.cpp)
 
 target_link_libraries(p3 math ${SDL_LIBRARY}
                       ${PNG_LIBRARIES} ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES}

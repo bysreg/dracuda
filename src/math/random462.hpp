@@ -6,19 +6,15 @@
 //  Copyright (c) 2014 Nathan Dobson. All rights reserved.
 //
 
-#include <random>
-#include <omp.h>
-#include "math/math.hpp"
-
 /**
  * Generate a uniform random real_t on the interval [0, 1)
  */
-real_t random_uniform();
+float random_uniform();
 
 /**
  * Generate a uniform random real_t from N(0, 1)
  */
-real_t random_gaussian();
+float random_gaussian();
 
     /**
      * Generate a uniformly random integer between 0 (incl) and n (excl)

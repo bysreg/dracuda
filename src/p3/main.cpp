@@ -7,6 +7,7 @@
 #include <cuda_runtime.h>
 #include <curand.h>
 #include "raytracer_cuda.hpp"
+#include "raytracer_single.hpp"
 #include "cycleTimer.h"
 #include "constants.hpp"
 #include "PoolScene.hpp"
@@ -207,6 +208,7 @@ void RaytracerApplication::update( float delta_time )
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);
 		cudaRayTrace(&cudaScene, buffer);
+		//singleRayTrace(&cudaScene, buffer);
 	}
 }
 
