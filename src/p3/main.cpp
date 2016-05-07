@@ -46,8 +46,8 @@ static const int slave_buffer_img_offset = 0;
 // master's related variable
 static int buffer_frame_height = 0;
 static bool send_scene_status = false; // can we send scene data to slave?
-static SlaveInfo slaves_info[100] = {};
-static double slaves_weight[100] = {};
+static SlaveInfo slaves_info[100] = {0}; // zero initialize array
+static double slaves_weight[100] = {0}; // zero initialize array
 static bool app_started = false;
 static RaytracerApplication* s_app = nullptr;
 
@@ -312,26 +312,32 @@ void on_master_connection_started(Connection& conn)
 
 void on_master_receive_message(int conn_idx, const Message& message)
 {
-	// update the slave's response time data
-	slaves_info[conn_idx].response_duration = CycleTimer::currentSeconds() 
-		- slaves_info[conn_idx].send_time;
+	SlaveInfo& si = slaves_info[conn_idx];
+	si.messages_received++;	
 
-	// we receive the image from slave-i	
-	int byte_offset = slaves_info[conn_idx].y0 * WIDTH * 4;
+	// update the slave's response time data
+	si.response_duration = CycleTimer::currentSeconds() - si.send_time;
 
 	// grab the rendering time from the front of the message
-	std::memcpy(&slaves_info[conn_idx].rendering_latency, message.body(), sizeof(double));
+	std::memcpy(&si.rendering_latency, message.body(), sizeof(double));
 
 	// network latency is response_duration - rendering_latency
-	slaves_info[conn_idx].network_latency = slaves_info[conn_idx].response_duration - slaves_info[conn_idx].rendering_latency;
+	si.network_latency = si.response_duration - si.rendering_latency;
+	si.sum_network_latency += si.network_latency;
 
-	// std::cout<<"receive piece of image from " 
-	// 	<< conn_idx << " " << slaves_info[conn_idx].y0 << " "
-	// 	<< ((message.body_length() - slave_buffer_img_offset) / 4 / WIDTH) << " "
-	// 	<< slaves_info[conn_idx].response_duration << " " 
-	// 	<< slaves_info[conn_idx].network_latency  << " " 
-	// 	<< slaves_info[conn_idx].rendering_latency << std::endl;
+	// calc the rendering factor
+	si.rendering_factor = si.rendering_latency / si.render_height;
+	si.sum_rendering_factor += si.rendering_factor;
 
+	std::cout<<"receive piece of image from " 
+		<< conn_idx << " "
+		<< ((message.body_length() - slave_buffer_img_offset) / 4 / WIDTH) << " "
+		<< si.response_duration << " " 
+		<< si.network_latency  << " " 
+		<< si.rendering_latency << std::endl;
+
+	// we receive the image from slave-i	
+	int byte_offset = si.y0 * WIDTH * 4;
 	std::memcpy(s_app->buffer + byte_offset + slave_buffer_img_offset, message.body(), message.body_length());
 
 	// we could only send the next scene data to slave
