@@ -127,6 +127,7 @@ bool RaytracerApplication::initialize()
 		// master's read buffer need to be able to accomodate
 		// image that is being sent from the slave
 		Master::read_msg_max_length = WIDTH * HEIGHT * PIXEL_SIZE + 100;
+		Master::write_msg_max_length = sizeof(cudaScene);
 		master = &Master::start();
 		master->set_on_message_received(on_master_receive_message);
 		master->set_on_connection_started(on_master_connection_started);
@@ -137,6 +138,7 @@ bool RaytracerApplication::initialize()
 
 		// slave only needs to read scene's data from master
 		Slave::read_msg_max_length = sizeof(cudaScene);
+		Slave::write_msg_max_length = WIDTH * HEIGHT * PIXEL_SIZE + 100;
 		slave = &Slave::start(options.host);
 		slave->set_on_message_received(on_slave_receive_message);
 		slave->set_on_socket_closed([](){
@@ -372,6 +374,9 @@ void calc_perf()
 
 void on_master_receive_message(int conn_idx, const Message& message)
 {
+	// measure timing here	
+	// double start_process_message = CycleTimer::currentSeconds();
+
 	// std::cout<<"start processing message from slave"<<std::endl;
 	// printf("start process %d\n", conn_idx);
 
@@ -393,15 +398,15 @@ void on_master_receive_message(int conn_idx, const Message& message)
 	si.rendering_factor = si.rendering_latency / si.render_height;
 	si.sum_rendering_factor += si.rendering_factor;
 
-	// std::cout<<"receive msg " 
-	// 	<< conn_idx << " "
-	// 	<< si.render_height << " "
-	// 	<<"dur:"<< si.response_duration << " " 
-	// 	<<"net:"<< si.network_latency  << " " 
-	// 	<<"renlat:"<< si.rendering_latency << " " 
-	// 	<<"anet:"<< si.get_avg_network_latency() << " "
-	// 	<<"arenfac:"<< si.get_avg_rendering_factor() << " " 
-	// 	<<std::endl;
+	std::cout<<"receive msg " 
+		<< conn_idx << " "
+		<< si.render_height << " "
+		<<"dur:"<< si.response_duration << " " 
+		<<"net:"<< si.network_latency  << " " 
+		<<"renlat:"<< si.rendering_latency << " " 
+		<<"anet:"<< si.get_avg_network_latency() << " "
+		<<"arenfac:"<< si.get_avg_rendering_factor() << " " 
+		<<std::endl;
 
 	// we receive the image from slave-i	
 	int byte_offset = si.y0 * WIDTH * PIXEL_SIZE;
@@ -439,6 +444,9 @@ void on_master_receive_message(int conn_idx, const Message& message)
 		// 	master_render_frame_counter = 0;
 		// }
 	}
+
+	// double dur = CycleTimer::currentSeconds() - start_process_message;
+	// std::cout<<"on_master_receive_message time :  "<<dur<<std::endl;
 	// printf("finish %d\n", conn_idx);
 	// ========== end of critical section =========
 }

@@ -7,12 +7,15 @@
 #include <boost/lexical_cast.hpp>
 
 int Slave::read_msg_max_length = 1000;
+int Slave::write_msg_max_length = 800*600*3;
 
 Slave::Slave(boost::asio::io_service& io_service, 
 	tcp::resolver::iterator endpoint_iterator_)
 	: io_service(io_service), endpoint_iterator(endpoint_iterator_),
-	  socket(io_service), read_msg(Slave::read_msg_max_length)
-{}
+	  socket(io_service), read_msg(Slave::read_msg_max_length), 
+	  image_write_msg(new Message(write_msg_max_length))
+{
+}
 
 Slave& Slave::start(const std::string& host) 
 {
@@ -112,12 +115,13 @@ void Slave::do_read_body()
 
 void Slave::send(const unsigned char* chars, int size)
 {
-	MessagePtr msg = std::make_shared<Message>(size);
-
-	msg->set_body_length(size);
-	std::memcpy(msg->body(), chars, size);
-	msg->encode_header();
-	send(msg);
+	// hack
+	// MessagePtr msg = std::make_shared<Message>(size);
+	image_write_msg->set_body_length(size);
+	std::memcpy(image_write_msg->body(), chars, size);
+	image_write_msg->encode_header();
+	send(image_write_msg);
+	//std::cout << "test : " << write_msgs.size() << std::endl;
 }
 
 void Slave::send(const std::string& str)

@@ -66,6 +66,7 @@ private:
 public:	
 
 	static int read_msg_max_length;
+	static int write_msg_max_length;
 	static int max_concurrent_conn;
 
 	static Master& start();	
@@ -85,7 +86,10 @@ public:
 
 	template<typename T>
 	void send(int conn_idx, const T& value) {
-		MessagePtr msg =  std::make_shared<Message>(sizeof(T));
+		// hack
+
+		// MessagePtr msg =  std::make_shared<Message>(sizeof(T));
+		MessagePtr msg = scene_write_msg;
 
 		msg->set_body_length(sizeof(T));
 		std::memcpy(msg->body(), &value, sizeof(T));
@@ -116,6 +120,8 @@ private:
 
 	tcp::acceptor acceptor;
 	tcp::socket socket;
+
+	MessagePtr scene_write_msg; // hack
 
 	std::vector<ConnectionPtr> connections;
 };

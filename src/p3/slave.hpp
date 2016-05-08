@@ -14,6 +14,7 @@ private:
 public:
 
 	static int read_msg_max_length;
+	static int write_msg_max_length;
 
 	// create a new thread to run slave tcp 
 	static Slave& start(const std::string& host);
@@ -49,7 +50,9 @@ private:
 	boost::asio::io_service& io_service;
 	tcp::socket socket;
 	Message read_msg;
-	MessageQueue write_msgs;
+	MessageQueue write_msgs; // queue to send message
+	// MessageQueue write_msg_pool;
+	MessagePtr image_write_msg; // hack
 	tcp::resolver::iterator endpoint_iterator;
 
 	// callbacks

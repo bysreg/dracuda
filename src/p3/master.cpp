@@ -2,6 +2,7 @@
 #include "master.hpp"
 
 int Master::read_msg_max_length = 800*600*3;
+int Master::write_msg_max_length = 1000;
 int Master::max_concurrent_conn = 1;
 
 Connection::Connection(boost::asio::ip::tcp::socket socket_, 
@@ -131,7 +132,7 @@ void Connection::do_read_body()
 
 Master::Master(boost::asio::io_service& io_service)
 	: acceptor(io_service, tcp::endpoint(tcp::v4(), 50000)),
-	socket(io_service)
+	socket(io_service), scene_write_msg(new Message(Master::write_msg_max_length))
 {
 	connections.reserve(4);
 
