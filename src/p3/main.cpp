@@ -20,6 +20,7 @@
 #include "load_balancer.hpp"
 #include "raytracer_application.hpp"
 #include "options.hpp"
+#include "time.h"
 
 #include <SDL.h>
 #include <stdlib.h>
@@ -30,6 +31,7 @@
 #include <vector>
 #include <cstdlib>
 #include <cmath>
+#include <unistd.h>
 
 static GLenum PIXEL_FORMAT = GL_RGB;
 
@@ -194,11 +196,16 @@ void assign_work()
 	int cur_y0 = 0;
 	for(int i=0;i<n;i++)
 	{		
+		// dont' send message if we don't have any workload for slave
+		if(slaves_info[i].render_height == 0) {
+			continue;
+		} 
+
 		slaves_info[i].y0 = cur_y0;
 		cudaScene.y0 = slaves_info[i].y0;
 		cudaScene.render_height = slaves_info[i].render_height;
 		slaves_info[i].send_time = CycleTimer::currentSeconds();
-		
+
 		master->send(i, cudaScene);
 
 		cur_y0 += slaves_info[i].render_height;
@@ -332,6 +339,35 @@ void on_master_connection_started(Connection& conn)
 	}
 }
 
+void calc_perf()
+{
+	static int count = 0;
+	int n = master->get_connections_count();
+	double mean = 0;
+	double max_resp_time = -1;
+	for(int i=0;i<n;i++) {
+		mean += slaves_info[i].response_duration;
+		if(max_resp_time < slaves_info[i].response_duration) {
+			max_resp_time = slaves_info[i].response_duration;
+		}
+	}
+
+	mean /= n;
+
+	double sqr_diff = 0;
+	for(int i=0;i<n;i++) {
+		sqr_diff += std::pow(slaves_info[i].response_duration - mean, 2);
+	}
+	sqr_diff /= n;
+
+	double standard_dev = std::sqrt(sqr_diff);
+
+	// std::cout<<"stan dev : "<<count<<" "<<standard_dev<<std::endl;
+	// std::cout<<"max resp : "<<count<<" "<<max_resp_time<<std::endl;
+	std::cout<<standard_dev<<","<<max_resp_time<<std::endl;
+	count++;
+}
+
 void on_master_receive_message(int conn_idx, const Message& message)
 {
 	// std::cout<<"start processing message from slave"<<std::endl;
@@ -383,17 +419,22 @@ void on_master_receive_message(int conn_idx, const Message& message)
 		buffer_frame_height = 0;
 		send_scene_status = true;
 		s_app->swap_buffer();
+
+		s_app->cur_render_frame_number++;
+
+		// analytics
+		calc_perf();
 	
 		// fps
-		master_render_frame_counter++;
-		if ( master_render_frame_counter == master_render_frame_print_time ) {
-			int curr_time = SDL_GetTicks();
-			printf( "master render fps: %f\n",
-				master_render_frame_print_time * 1000 / float(curr_time - master_render_frame_rate_counter_start)
-			);
-			master_render_frame_rate_counter_start = curr_time;
-			master_render_frame_counter = 0;
-		}
+		// master_render_frame_counter++;
+		// if ( master_render_frame_counter == master_render_frame_print_time ) {
+		// 	int curr_time = SDL_GetTicks();
+		// 	printf( "master render fps: %f\n",
+		// 		master_render_frame_print_time * 1000 / float(curr_time - master_render_frame_rate_counter_start)
+		// 	);
+		// 	master_render_frame_rate_counter_start = curr_time;
+		// 	master_render_frame_counter = 0;
+		// }
 	}
 	// printf("finish %d\n", conn_idx);
 	// ========== end of critical section =========
@@ -401,6 +442,11 @@ void on_master_receive_message(int conn_idx, const Message& message)
 
 void on_slave_receive_message(const Message& message) 
 {
+	// // simulate network latency
+	// static double random_latency = (((double)rand() / RAND_MAX) *  (0.2 - 0.08) + 0.08) * 1000000; // in microseconds
+	// std::cout<<"test:"<<random_latency<<std::endl;	
+	// usleep(random_latency);
+
 	CudaScene cudaSceneCopy;
 
 	// calculate the rendering start time
@@ -422,6 +468,8 @@ void on_slave_receive_message(const Message& message)
 
 int main( int argc, char* argv[] )
 {
+	srand(time(NULL));
+
 	Options opt;
 	opt.master = false;
 	opt.slave = false;

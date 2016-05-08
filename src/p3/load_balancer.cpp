@@ -15,7 +15,7 @@ void LoadBalancer::calc(const RaytracerApplication* app, SlaveInfo* input, doubl
 	static bool warmed_up = false;
 
 	// always divide it equally at first
-	if(app->cur_frame_number <= WARM_FRAMES) {
+	if(app->cur_render_frame_number <= WARM_FRAMES) {
 		calc_equal(input, output, size);
 	}else{
 
@@ -30,12 +30,12 @@ void LoadBalancer::calc(const RaytracerApplication* app, SlaveInfo* input, doubl
 		calc_ab(input, output, size, HEIGHT);
 	}	
 
-	std::cout<<"weight : ";
-	for(int i=0;i<size;i++) 
-	{
-		std::cout<<output[i]<<" ";
-	}
-	std::cout<<std::endl;
+	// std::cout<<"weight : ";
+	// for(int i=0;i<size;i++) 
+	// {
+	// 	std::cout<<output[i]<<" ";
+	// }
+	// std::cout<<std::endl;
 
 	//test
 	// SlaveInfo test_input[3];

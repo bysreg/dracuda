@@ -178,16 +178,16 @@ static void run_main_loop( void (*update_fn)( LoopData*, bool ), LoopData* data,
             num_skips++;
         }
 
-        if ( frame_rate_counter == FRAME_RATE_PRINT_TIME ) {
-            int curr_time = SDL_GetTicks();
-            printf( "main loop frame rate: %f, avg frame time: %f\n",
-                FRAME_RATE_PRINT_TIME * 1000 / float(curr_time - frame_rate_counter_start),
-                float(total_frame_time) / FRAME_RATE_PRINT_TIME
-            );
-            frame_rate_counter_start = curr_time;
-            frame_rate_counter = 0;
-            total_frame_time = 0;
-        }
+        // if ( frame_rate_counter == FRAME_RATE_PRINT_TIME ) {
+        //     int curr_time = SDL_GetTicks();
+        //     printf( "main loop frame rate: %f, avg frame time: %f\n",
+        //         FRAME_RATE_PRINT_TIME * 1000 / float(curr_time - frame_rate_counter_start),
+        //         float(total_frame_time) / FRAME_RATE_PRINT_TIME
+        //     );
+        //     frame_rate_counter_start = curr_time;
+        //     frame_rate_counter = 0;
+        //     total_frame_time = 0;
+        // }
 
         // compute sleep time until end of period, may be negative
         int end_time = SDL_GetTicks();
