@@ -332,10 +332,12 @@ void on_master_connection_started(Connection& conn)
 {
 	int n = master->get_connections_count();
 
+	slaves_info[conn.idx].idx = conn.idx;
+
 	if(n >= s_app->options.min_slave_to_start) {
 		// minimum slave count is reached, now
 		// we can start running the application
-		app_started = true;		
+		app_started = true;
 	}
 }
 
@@ -378,6 +380,7 @@ void on_master_receive_message(int conn_idx, const Message& message)
 
 	// update the slave's response time data
 	si.response_duration = CycleTimer::currentSeconds() - si.send_time;
+	si.sum_response_duration += si.response_duration;
 
 	// grab the rendering time from the front of the message
 	std::memcpy(&si.rendering_latency, message.body(), sizeof(double));
@@ -392,7 +395,7 @@ void on_master_receive_message(int conn_idx, const Message& message)
 
 	// std::cout<<"receive msg " 
 	// 	<< conn_idx << " "
-	// 	<< ((message.body_length() - slave_buffer_img_offset) / PIXEL_SIZE / WIDTH) << " "
+	// 	<< si.render_height << " "
 	// 	<<"dur:"<< si.response_duration << " " 
 	// 	<<"net:"<< si.network_latency  << " " 
 	// 	<<"renlat:"<< si.rendering_latency << " " 
