@@ -414,15 +414,15 @@ void on_master_receive_message(int conn_idx, const Message& message)
 	si.rendering_factor = si.rendering_latency / si.render_height;
 	si.sum_rendering_factor += si.rendering_factor;
 
-	std::cout<<"receive msg " 
-		<< conn_idx << " "
-		<< si.render_height << " "
-		<<"dur:"<< si.response_duration << " " 
-		<<"net:"<< si.network_latency  << " " 
-		<<"renlat:"<< si.rendering_latency << " " 
-		<<"anet:"<< si.get_avg_network_latency() << " "
-		<<"arenfac:"<< si.get_avg_rendering_factor() << " " 
-		<<std::endl;
+	// std::cout<<"receive msg " 
+	// 	<< conn_idx << " "
+	// 	<< si.render_height << " "
+	// 	<<"dur:"<< si.response_duration << " " 
+	// 	<<"net:"<< si.network_latency  << " " 
+	// 	<<"renlat:"<< si.rendering_latency << " " 
+	// 	<<"anet:"<< si.get_avg_network_latency() << " "
+	// 	<<"arenfac:"<< si.get_avg_rendering_factor() << " " 
+	// 	<<std::endl;
 
 	// we receive the image from slave-i	
 	int byte_offset = si.y0 * WIDTH * PIXEL_SIZE;
@@ -447,18 +447,18 @@ void on_master_receive_message(int conn_idx, const Message& message)
 		s_app->cur_render_frame_number++;
 
 		// analytics
-		calc_perf();
+		// calc_perf();
 	
-		// fps
-		// master_render_frame_counter++;
-		// if ( master_render_frame_counter == master_render_frame_print_time ) {
-		// 	int curr_time = SDL_GetTicks();
-		// 	printf( "master render fps: %f\n",
-		// 		master_render_frame_print_time * 1000 / float(curr_time - master_render_frame_rate_counter_start)
-		// 	);
-		// 	master_render_frame_rate_counter_start = curr_time;
-		// 	master_render_frame_counter = 0;
-		// }
+		// render fps
+		master_render_frame_counter++;
+		if ( master_render_frame_counter == master_render_frame_print_time ) {
+			int curr_time = SDL_GetTicks();
+			printf("%f\n",
+				master_render_frame_print_time * 1000 / float(curr_time - master_render_frame_rate_counter_start)
+			);
+			master_render_frame_rate_counter_start = curr_time;
+			master_render_frame_counter = 0;
+		}
 	}
 
 	// double dur = CycleTimer::currentSeconds() - start_process_message;
@@ -516,7 +516,7 @@ int main( int argc, char* argv[] )
 	s_app = &app;
 	cout << "master:slave => " << opt.master << ":" << opt.slave << endl;
 
-	float fps = 60.0;
+	float fps = 20.0;
 	const char* title = "DRACUDA";
 
 	if(opt.master) {
