@@ -273,7 +273,7 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 #ifdef MTHREAD
 	#pragma omp for private(tid) schedule(dynamic)
 #endif
-	for (int y = cuScene.y0; y < cuScene.render_height; y++) {
+	for (int y = cuScene.y0; y < cuScene.y0 + cuScene.render_height; y++) {
 		for (int x0 = 0; x0 < WIDTH; x0 += 4) {
 			int w = (y  - cuScene.y0)* WIDTH + x0;
 			C2x = SET1(0); C2y = SET1(0); C2z = SET1(0);
