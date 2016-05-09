@@ -1,5 +1,7 @@
 struct SlaveInfo
 {
+	int idx;
+
 	int y0;
 
 	// the workload
@@ -29,6 +31,8 @@ struct SlaveInfo
 	// this value is taken from last frame
 	double rendering_factor;
 
+	double sum_response_duration;
+
 	double sum_network_latency;
 
 	double sum_rendering_factor;
@@ -45,5 +49,12 @@ struct SlaveInfo
 		if(messages_received == 0)
 			return 0;
 		return sum_rendering_factor / messages_received;
+	}
+
+	inline double get_avg_response_duration() const
+	{
+		if(messages_received == 0)
+			return 0;
+		return sum_response_duration / messages_received;
 	}
 };

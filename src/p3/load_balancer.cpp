@@ -15,7 +15,7 @@ void LoadBalancer::calc(const RaytracerApplication* app, SlaveInfo* input, doubl
 	static bool warmed_up = false;
 
 	// always divide it equally at first
-	if(app->cur_frame_number <= WARM_FRAMES) {
+	if(app->cur_render_frame_number <= WARM_FRAMES) {
 		calc_equal(input, output, size);
 	}else{
 
@@ -25,9 +25,11 @@ void LoadBalancer::calc(const RaytracerApplication* app, SlaveInfo* input, doubl
 		}
 
 		// pick one of the techniques	
-		calc_equal(input, output, size);
+		// calc_equal(input, output, size);
 		// calc_naive(input, output, size);
-		// calc_ab(input, output, size, HEIGHT);
+		calc_ab(input, output, size, HEIGHT);
+		// calc_naive_mean(input, output, size);
+		// calc_static_naive_mean(input, output, size);
 	}	
 
 	std::cout<<"weight : ";
@@ -73,6 +75,47 @@ void LoadBalancer::calc_naive(SlaveInfo* input, double* output, int size)
 	}
 }
 
+void LoadBalancer::calc_naive_mean(SlaveInfo* input, double* output, int size)
+{
+	//calculate sum of the inverse
+	double sum_of_inv = 0;
+	for(int i=0;i<size;i++)
+	{
+		sum_of_inv += (1.0 / input[i].get_avg_response_duration());
+	}
+
+	for(int i=0;i<size;i++)
+	{
+		output[i] = (1.0 / input[i].get_avg_response_duration()) / sum_of_inv;
+	}	
+}
+
+void LoadBalancer::calc_static_naive_mean(SlaveInfo* input, double* output, int size)
+{
+	static int init = 0;
+	static double weight[MAX_SLAVE];
+
+	if(init < 10) {
+		//calculate sum of the inverse
+		double sum_of_inv = 0;
+		for(int i=0;i<size;i++)
+		{
+			sum_of_inv += (1.0 / input[i].get_avg_response_duration());
+		}
+
+		for(int i=0;i<size;i++)
+		{
+			output[i] = (1.0 / input[i].get_avg_response_duration()) / sum_of_inv;
+			weight[i] = output[i];
+		}
+		init++;
+	}else{
+		for(int i=0;i<size;i++) {
+			output[i] = weight[i];
+		}
+	}
+}
+
 void LoadBalancer::calc_equal(SlaveInfo* input, double* output, int size)
 {
 	double w = 1.0 / size;
@@ -99,6 +142,7 @@ void LoadBalancer::calc_ab(SlaveInfo* input, double* output, int size, double to
 
 	static SlaveInfo copy[MAX_SLAVE];
 	for(int i=0;i<size;i++) {
+		copy[i].idx = input[i].idx;
 		copy[i].messages_received = input[i].messages_received;
 		copy[i].sum_network_latency = input[i].sum_network_latency;
 		copy[i].sum_rendering_factor = input[i].sum_rendering_factor;
@@ -151,10 +195,9 @@ void LoadBalancer::calc_ab(SlaveInfo* input, double* output, int size, double to
 		double delt_y = balanced_resp_time - copy[i].get_avg_network_latency();
 
 		if(delt_y <= 0)
-			output[i] = 0;
+			output[copy[i].idx] = 0;
 		else
-			output[i] = (delt_y / copy[i].get_avg_rendering_factor()) / total_workload;
-
+			output[copy[i].idx] = (delt_y / copy[i].get_avg_rendering_factor()) / total_workload;
 	}
 }
 

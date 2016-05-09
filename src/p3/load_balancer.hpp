@@ -17,6 +17,11 @@ class LoadBalancer
 	// input is an array of response time
 	static void calc_naive(SlaveInfo* input, double* output, int size);
 
+	static void calc_naive_mean(SlaveInfo* input, double* output, int size);
+
+
+	static void calc_static_naive_mean(SlaveInfo* input, double* output, int size);
+
 	// no matter the input, will populate the output 
 	// with equal weight for all elements
 	static void calc_equal(SlaveInfo* input, double* output, int size);

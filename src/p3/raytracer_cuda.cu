@@ -11,7 +11,7 @@
 
 #define EPS 0.0001
 
-#define NSAMPLES 6
+#define NSAMPLES 5
 #define SHADOW_RAYS 5
 
 unsigned char *cudaBuffer;
@@ -116,6 +116,8 @@ __device__ float circle2(float2 pos, float2 center, float radius, float dist, fl
 __device__ float trace_shadow(float3 ray_e, float3 ray_d)
 {
 	// Spheres Itest
+	if (ray_d.y < 0)
+		return 0.0;
 	float res = 1.0, t;
 	for (int i = 0; i < SPHERES; i++) {
 		// Intersection test
@@ -373,19 +375,20 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 	}
 	
 	accumulated_color /= NSAMPLES * NSAMPLES;
-	uchar4 col0;
+	// using 3 color per pixel
+	uchar3 col0;
 	col0.x = clamp(__powf(accumulated_color.x, 0.45) * 255, 0.0, 255.0);
 	col0.y = clamp(__powf(accumulated_color.y, 0.45) * 255, 0.0, 255.0);
 	col0.z = clamp(__powf(accumulated_color.z, 0.45) * 255, 0.0, 255.0);
-	col0.w = 255;
-	*((uchar4 *)img + w - WIDTH * y_start) = col0;
+	// col0.w = 255;
+	*((uchar3 *)img + x + (y - y_start) * WIDTH) = col0;
 	
 }
 
 void cudaInitialize()
 {
 	initialize_constants();
-	gpuErrchk(cudaMalloc((void **)&cudaBuffer, 4 * HEIGHT * WIDTH));
+	gpuErrchk(cudaMalloc((void **)&cudaBuffer, PIXEL_SIZE * HEIGHT * WIDTH));
 	gpuErrchk(cudaMalloc((void **)&poolConstants.curand, sizeof(curandState) * WIDTH * HEIGHT));
 	gpuErrchk(cudaMemcpyToSymbol(cuConstants, &poolConstants, sizeof(PoolConstants)));
 	dim3 dimBlock(16, 16);
@@ -412,6 +415,6 @@ void cudaRayTrace(CudaScene *scene, unsigned char *img)
 	cudaError_t error = cudaGetLastError();
 	if ( cudaSuccess != error )
 			printf( "Error: %d\n", error );
-	gpuErrchk(cudaMemcpy(img, cudaBuffer, 4 * WIDTH * height , cudaMemcpyDeviceToHost));
-	//gpuErrchk(cudaMemcpy(img, cudaBuffer + (scene->y0 * WIDTH * 4), 4 * WIDTH * height, cudaMemcpyDeviceToHost));
+	gpuErrchk(cudaMemcpy(img, cudaBuffer, PIXEL_SIZE * WIDTH * height , cudaMemcpyDeviceToHost));
+	//gpuErrchk(cudaMemcpy(img, cudaBuffer + (scene->y0 * WIDTH * PIXEL_SIZE), PIXEL_SIZE * WIDTH * height, cudaMemcpyDeviceToHost));
 }
