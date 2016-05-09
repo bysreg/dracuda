@@ -40,6 +40,8 @@ using namespace std;
 PoolScene poolScene;
 CudaScene cudaScene;
 
+static int mode;
+
 static Master* master;
 static Slave* slave;
 static bool paused;
@@ -236,9 +238,13 @@ void RaytracerApplication::update( float delta_time )
 		time += delta_time;
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);
-		//simdRayTrace(&cudaScene, buffer);
-		//singleRayTrace(&cudaScene, buffer);
-		cudaRayTrace(&cudaScene, buffer);
+		if (mode == 0) {
+			cudaRayTrace(&cudaScene, buffer);
+		} else if (mode == 1) {
+			simdRayTrace(&cudaScene, buffer);
+		} else {
+			singleRayTrace(&cudaScene, buffer);
+		}
 	}
 }
 
@@ -323,6 +329,16 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
 			opt->host = argv[i + 1]; // we assume the next parameter is the master's host for the slave to connect to
 			i++;
 			continue;
+		}
+	}
+	if (argc >= 3) {
+		char *arg = argv[2];
+		if (strcmp(arg, "cuda") == 0) {
+			mode = 0;
+		} else if (strcmp(arg, "simd") == 0) {
+			mode = 1;
+		} else if (strcmp(arg, "single") == 0) {
+			mode = 2;
 		}
 	}
 	return true;

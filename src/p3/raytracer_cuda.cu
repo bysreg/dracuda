@@ -11,9 +11,6 @@
 
 #define EPS 0.0001
 
-#define NSAMPLES 5
-#define SHADOW_RAYS 5
-
 unsigned char *cudaBuffer;
 
 inline __device__ float3 quaternionXvector(float4 q, float3 vec)
@@ -356,6 +353,7 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 				int geom_ref = -1;
 
 				float tmin = sphereIntersectionTestAll(ref, hit, geom_ref);
+				/*
 				float3 fresnel_color = make_float3(0, 0, 0);
 				if (geom_ref >= 0) {
 					float3 hit_ref = ref * tmin + hit;
@@ -363,9 +361,10 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 					float3 m_ref = do_material(geom_ref, orig_hit_ref);
 					fresnel_color = m_ref;
 				}
+				*/
 				float3 light_dir = normalize(make_float3(0.7, 1.0, -0.8));
-				accumulated_color += surface_color * m + fre * fresnel_color / 2;
-				accumulated_color += make_float3(0.3, 0.3, 0.3) * powf(clamp(dot(light_dir, ref), 0.0f, 1.0f), 50.0f);
+				accumulated_color += surface_color * m;// + fre * fresnel_color / 2;
+				accumulated_color += make_float3(0.3, 0.3, 0.3) * powf(clamp(dot(light_dir, ref), 0.0f, 1.0f), 64.0f);
 			} else {
 				accumulated_color += cuConstants.plane_colors[geom] * shadow_factor;
 			}
@@ -377,9 +376,9 @@ void cudaRayTraceKernel (unsigned char *img, int y_start)
 	accumulated_color /= NSAMPLES * NSAMPLES;
 	// using 3 color per pixel
 	uchar3 col0;
-	col0.x = clamp(__powf(accumulated_color.x, 0.45) * 255, 0.0, 255.0);
-	col0.y = clamp(__powf(accumulated_color.y, 0.45) * 255, 0.0, 255.0);
-	col0.z = clamp(__powf(accumulated_color.z, 0.45) * 255, 0.0, 255.0);
+	col0.x = clamp(__powf(accumulated_color.x, 0.50) * 255, 0.0, 255.0);
+	col0.y = clamp(__powf(accumulated_color.y, 0.50) * 255, 0.0, 255.0);
+	col0.z = clamp(__powf(accumulated_color.z, 0.50) * 255, 0.0, 255.0);
 	// col0.w = 255;
 	*((uchar3 *)img + x + (y - y_start) * WIDTH) = col0;
 	
