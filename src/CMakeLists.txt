@@ -13,7 +13,6 @@ include(build/CMakeLists.txt)
 include_directories(
     ${PROJECT_SOURCE_DIR}
     ${SDL_INCLUDE_DIR}
-    ${GLEW_INCLUDE_DIRS}
     ${PNG_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
 )

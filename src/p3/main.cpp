@@ -3,10 +3,6 @@
 #include <typeinfo>
 #include "opengl.hpp"
 #include "cudaScene.hpp"
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <curand.h>
-#include "raytracer_cuda.hpp"
 #include "raytracer_single.hpp"
 #include "raytracer_simd.hpp"
 #include "cycleTimer.h"
@@ -66,34 +62,6 @@ void on_slave_receive_message(const Message& message);
 
 #define KEY_RAYTRACE_GPU SDLK_g
 
-int LoadEnvmap(cudaArray **array, const char *filename) {
-	int width, height;
-	float endian;
-	FILE *file = fopen(filename, "r");
-	char tmp[10];
-	fscanf(file, "%s\n", tmp);
-	fscanf(file, "%d %d\n", &width, &height);
-	fscanf(file, "%f\n", &endian);
-	int size = width * height * sizeof(float4) ;
-	printf("HW: %d %d\n", width, height);
-	float *data = (float *)malloc(size);
-	fread(data, sizeof(float), height * width * 3, file);
-	for (int i = height * width - 1; i >= 0; i--) {
-		data[4 * i + 3] = 1.000;
-		data[4 * i + 2] = data[3 * i + 2];
-		data[4 * i + 1] = data[3 * i + 1];
-		data[4 * i + 0] = data[3 * i + 0];
-	}
-	fclose(file);
-
-	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat );
-	gpuErrchk(cudaMallocArray(array, &channelDesc, width, height));
-	gpuErrchk(cudaMemcpyToArray(*array, 0, 0, data, size, cudaMemcpyHostToDevice));
-	free(data);
-	return 0;
-}
-
-
 bool RaytracerApplication::initialize()
 {
 	time = 0;
@@ -120,7 +88,7 @@ bool RaytracerApplication::initialize()
 	}
 
 	// CUDA part
-	cudaInitialize();
+	initialize_constants();
 	simdInitialize();
 	std::cout << "Cuda initialized" << std::endl;
 	if(options.master) {
@@ -239,11 +207,9 @@ void RaytracerApplication::update( float delta_time )
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);
 		if (mode == 0) {
-			cudaRayTrace(&cudaScene, buffer);
 		} else if (mode == 1) {
 			simdRayTrace(&cudaScene, buffer);
 		} else {
-			singleRayTrace(&cudaScene, buffer);
 		}
 	}
 }
@@ -481,11 +447,9 @@ void on_slave_receive_message(const Message& message)
 
 	std::memcpy(&cudaSceneCopy, message.body(), message.body_length());
 	if (mode == 0) {
-		cudaRayTrace(&cudaSceneCopy, s_app->buffer + slave_buffer_img_offset);
 	} else if (mode == 1) {
 		simdRayTrace(&cudaSceneCopy, s_app->buffer + slave_buffer_img_offset);
 	} else {
-		singleRayTrace(&cudaSceneCopy, s_app->buffer + slave_buffer_img_offset);
 	}
 
 	// calculate the rendering latency

@@ -1,10 +1,14 @@
 #ifndef CONSTANTS_HPP
 #define CONSTANTS_HPP
 
+#if CUDA
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <curand.h>
 #include <curand_kernel.h>
+#endif
+#include "cudavector.h"
+
 
 #define NSAMPLES 5
 #define SHADOW_RAYS 5
@@ -36,7 +40,9 @@ struct PoolConstants
 	float3 upper_bounds[PLANES];
 	float positions[PLANES];
 
+#if CUDA
 	curandState *curand;
+#endif
 };
 
 extern PoolConstants poolConstants;

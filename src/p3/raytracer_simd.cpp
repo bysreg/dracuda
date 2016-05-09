@@ -1,19 +1,18 @@
 #include <stdio.h>
 #include <omp.h>
 #include "cudaScene.hpp"
-#include "raytracer_cuda.hpp"
+#include "raytracer_simd.hpp"
 #include "helper_math.h"
-#include <curand.h>
-#include <curand_kernel.h>
 #include "cycleTimer.h"
 #include "constants.hpp"
 #include "math/random462.hpp"
 #include <immintrin.h>
+#include "helper_math.h"
 #define PI 3.1415926535
 
 #define EPS 0.0001
 
-static PoolConstants cuConstants;// = poolConstants;
+//static PoolConstants poolConstants;// = poolConstants;
 static CudaScene cuScene;
 
 
@@ -72,8 +71,11 @@ static float distanceToSegment( float2 a, float2 b, float2 p )
  static float3 do_material (int geom, float3 pos)
 {
 	//pos = pos - cuScene.ball_position[geom];
-	float3 mate = cuConstants.sphere_colors[geom];
+	float3 mate = poolConstants.sphere_colors[geom];
 	float3 cue_color = make_float3(0.29, 0.27, 0.25);
+	if (geom >= 0) {
+		printf("%d %f %f %f\n", geom, mate.x, mate.y, mate.z);
+	}
 	if (geom < SOLIDS) {
 		mate = lerp(mate, cue_color, smoothstep(0.9, 0.91, fabs(pos.y)));
 	} else {
@@ -221,21 +223,21 @@ void printVec(__m256 vec)
 #define BLEND _mm256_blendv_ps
 
 #define PLANE_INTERSECT(geo, a0, a1, a2, v0, v1, v2) \
-B = SET1(cuConstants.positions[geo] - ray_e.a0); \
+B = SET1(poolConstants.positions[geo] - ray_e.a0); \
 A = DIV(B, v0);\
 C = MUL(A, v1); B = SET1(ray_e.a1); C = ADD(C, B);\
-B = SET1(cuConstants.lower_bounds[geo].a1);\
+B = SET1(poolConstants.lower_bounds[geo].a1);\
 M1 = CMP(C, B, _CMP_GT_OQ);\
-B = SET1(cuConstants.upper_bounds[geo].a1);\
+B = SET1(poolConstants.upper_bounds[geo].a1);\
 M2 = CMP(C, B, _CMP_LT_OQ);\
 M1 = _mm256_and_ps(M1, M2);\
 C = MUL(A, v2);\
 B = SET1(ray_e.a2);\
 C = ADD(C, B);\
-B = SET1(cuConstants.lower_bounds[geo].a2);\
+B = SET1(poolConstants.lower_bounds[geo].a2);\
 M2 = CMP(C, B, _CMP_GT_OQ);\
 M1 = _mm256_and_ps(M1, M2);\
-B = SET1(cuConstants.upper_bounds[geo].a2);\
+B = SET1(poolConstants.upper_bounds[geo].a2);\
 M2 = CMP(C, B, _CMP_LT_OQ);\
 M1 = _mm256_and_ps(M1, M2);\
 B = SET1(0.0001); \
@@ -266,10 +268,13 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 {
 	double startTime = CycleTimer::currentSeconds();
 	cuScene = *scene;
-	cuConstants = poolConstants;
+	poolConstants = poolConstants;
 	int tid = 0;
+printf("%d %d\n", scene->y0, scene->render_height);
 	float3 ray_e = cuScene.cam_position;
+#ifdef MTHREAD
 	#pragma omp parallel 
+#endif
 	{
 	__m256 A, B, C, D, E, S, S0, G, V0x, V0y, V0z, V1x, V1y, V1z, C0x, C0y, C0z, M0, M1, M2, M3, S1;
 	__m256 C1x, C1y, C1z;
@@ -278,14 +283,20 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 	__m256 V3x, V3y, V3z;
 	__m256 V4x, V4y, V4z;
 	__m256 R;
+#ifdef MTHREAD
 	tid = omp_get_thread_num();
+#else
+	tid = 0;
+#endif
 	float *printBuffer = printBuffer_real + 128 * tid;
 	float *tempBuffer = tempBuffer_real + 128 * tid;
 	R = _mm256_set_ps(random_uniform(), random_uniform(), random_uniform(),
 			random_uniform(), random_uniform(), random_uniform(),
 			random_uniform(), random_uniform());
+#ifdef MTHREAD
 	#pragma omp for private(tid) schedule(dynamic)
-	for (int y = cuScene.y0; y < HEIGHT; y++) {
+#endif
+	for (int y = cuScene.y0; y < cuScene.y0 + cuScene.render_height; y++) {
 		for (int x0 = 0; x0 < WIDTH; x0 += 8) {
 			int w = (y  - cuScene.y0)* WIDTH + x0;
 			C2x = SET1(0); C2y = SET1(0); C2z = SET1(0);
@@ -384,7 +395,7 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 				if ((isSpheres >> i) & 1) {
 					float3 hit = normalize(make_float3(tempBuffer[i], tempBuffer[8 + i], tempBuffer[16 + i]) - cuScene.ball_position[geom]);
 					float3 m = do_material(geom, quaternionXCvector(cuScene.ball_orientation[geom], hit));
-					//float3 m = cuConstants.sphere_colors[geom];
+					//float3 m = poolConstants.sphere_colors[geom];
 					tempBuffer[i] = hit.x;
 					tempBuffer[8 + i] = hit.y;
 					tempBuffer[16 + i] = hit.z;
@@ -392,12 +403,12 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 					tempBuffer[32 + i] = m.y;
 					tempBuffer[40 + i] = m.z;
 				} else if ((isPlanes >> i) & 1) {
-					tempBuffer[i] = cuConstants.normals[geom].x;
-					tempBuffer[8 + i] = cuConstants.normals[geom].y;
-					tempBuffer[16 + i] = cuConstants.normals[geom].z;
-					tempBuffer[24 + i] = cuConstants.plane_colors[geom].x;
-					tempBuffer[32 + i] = cuConstants.plane_colors[geom].y;
-					tempBuffer[40 + i] = cuConstants.plane_colors[geom].z;
+					tempBuffer[i] = poolConstants.normals[geom].x;
+					tempBuffer[8 + i] = poolConstants.normals[geom].y;
+					tempBuffer[16 + i] = poolConstants.normals[geom].z;
+					tempBuffer[24 + i] = poolConstants.plane_colors[geom].x;
+					tempBuffer[32 + i] = poolConstants.plane_colors[geom].y;
+					tempBuffer[40 + i] = poolConstants.plane_colors[geom].z;
 				} else {
 					tempBuffer[24 + i] = 0.7;
 					tempBuffer[32 + i] = 0.8;

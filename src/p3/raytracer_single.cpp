@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include "cudaScene.hpp"
-#include "raytracer_cuda.hpp"
 #include "helper_math.h"
-#include <curand.h>
-#include <curand_kernel.h>
+#include "raytracer_single.hpp"
 #include "cycleTimer.h"
 #include "constants.hpp"
 #include "math/random462.hpp"

@@ -2,10 +2,7 @@
 #define __CUDA_SCENE
 
 #include "constants.hpp"
-#include <curand.h>
-#include <curand_kernel.h>
-#include <cuda_runtime.h>
-#include <cuda.h>
+#include "cudavector.h"
 
 struct CudaScene
 {
@@ -21,6 +18,7 @@ struct CudaScene
 
 	int y0; // render offset
 	int render_height;
+	void *placeholder;
 };
 
 #endif
