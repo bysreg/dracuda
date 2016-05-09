@@ -56,6 +56,8 @@ void on_master_connection_started(Connection& conn);
 void on_master_receive_message(int conn_idx, const Message& message);
 void on_slave_receive_message(const Message& message);
 
+int mode = 0;
+
 #define KEY_RAYTRACE_GPU SDLK_g
 
 int LoadEnvmap(cudaArray **array, const char *filename) {
@@ -209,9 +211,14 @@ void RaytracerApplication::update( float delta_time )
 		time += delta_time;
 		poolScene.update(delta_time);
 		poolScene.toCudaScene(cudaScene);
-		//simdRayTrace(&cudaScene, buffer);
-		//singleRayTrace(&cudaScene, buffer);
-		cudaRayTrace(&cudaScene, buffer);
+		if (mode == 0) {
+			cudaRayTrace(&cudaScene, buffer);
+		} else if (mode == 1) {
+			simdRayTrace(&cudaScene, buffer);
+		} else {
+			singleRayTrace(&cudaScene, buffer);
+		}
+
 	}
 }
 
@@ -286,6 +293,11 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
     		i++;
     		continue;
     	}
+		if (strcmp(argv[2], "simd") == 0) {
+			mode = 1;
+		} else if (strcmp(argv[2], "sing") == 0) {
+			mode = 2;
+		}
     }
     return true;
 }
