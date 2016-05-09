@@ -171,28 +171,6 @@ static float distanceToSegment( float2 a, float2 b, float2 p )
 	return mate;
 }
 
-
- static float sphereIntersectionTestAll(float3 ray_d, float3 ray_e, int &geom)
-{
-	float tmin = 10000.0;
-	// Spheres Itest
-	for (int i = 0; i < SPHERES; i++) {
-		float3 t_ray_e = ray_e - cuScene.ball_position[i];
-		// Intersection test
-		float t = 10000.0;
-		float B = dot(ray_d, t_ray_e);
-		float C = dot(t_ray_e, t_ray_e) - 1;
-		float B24AC = B * B - C;
-		if (B24AC >= 0)
-			t = -B - sqrt(B24AC);
-		if (t > EPS && t < tmin) {
-			geom = i;
-			tmin = t;
-		}
-	}
-	return tmin;
-}
-
 float *printBuffer_real;
 float *tempBuffer_real;
 
@@ -272,7 +250,9 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 	cuConstants = poolConstants;
 	int tid = 0;
 	float3 ray_e = cuScene.cam_position;
+#ifdef MTHREAD
 	#pragma omp parallel 
+#endif
 	{
 	__m128 A, B, C, D, E, S, S0, G, V0x, V0y, V0z, V1x, V1y, V1z, C0x, C0y, C0z, M0, M1, M2, M3, S1;
 	__m128 C1x, C1y, C1z;
@@ -281,13 +261,19 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 	__m128 V3x, V3y, V3z;
 	__m128 V4x, V4y, V4z;
 	__m128 R;
+#ifdef MTHREAD
 	tid = omp_get_thread_num();
+#else
+	tid = 0;
+#endif
 	float *printBuffer = printBuffer_real + 128 * tid;
 	float *tempBuffer = tempBuffer_real + 128 * tid;
 	R = _mm_set_ps(random_uniform(), random_uniform(), random_uniform(),
 			random_uniform());
+#ifdef MTHREAD
 	#pragma omp for private(tid) schedule(dynamic)
-	for (int y = cuScene.y0; y < HEIGHT; y++) {
+#endif
+	for (int y = cuScene.y0; y < cuScene.render_height; y++) {
 		for (int x0 = 0; x0 < WIDTH; x0 += 4) {
 			int w = (y  - cuScene.y0)* WIDTH + x0;
 			C2x = SET1(0); C2y = SET1(0); C2z = SET1(0);

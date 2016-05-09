@@ -6,8 +6,10 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-#define NSAMPLES 5
-#define SHADOW_RAYS 5
+#define MTHREAD
+
+#define NSAMPLES 10
+#define SHADOW_RAYS 10
 
 #define WIDTH 768
 #define HEIGHT 576
