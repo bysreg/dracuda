@@ -73,9 +73,6 @@ static float distanceToSegment( float2 a, float2 b, float2 p )
 	//pos = pos - cuScene.ball_position[geom];
 	float3 mate = poolConstants.sphere_colors[geom];
 	float3 cue_color = make_float3(0.29, 0.27, 0.25);
-	if (geom >= 0) {
-		printf("%d %f %f %f\n", geom, mate.x, mate.y, mate.z);
-	}
 	if (geom < SOLIDS) {
 		mate = lerp(mate, cue_color, smoothstep(0.9, 0.91, fabs(pos.y)));
 	} else {
