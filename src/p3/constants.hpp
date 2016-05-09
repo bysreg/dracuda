@@ -9,6 +9,7 @@
 #endif
 #include "cudavector.h"
 
+#define MTHREAD
 
 #define NSAMPLES 5
 #define SHADOW_RAYS 5
