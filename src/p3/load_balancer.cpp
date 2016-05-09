@@ -32,12 +32,12 @@ void LoadBalancer::calc(const RaytracerApplication* app, SlaveInfo* input, doubl
 		// calc_static_naive_mean(input, output, size);
 	}	
 
-	std::cout<<"weight : ";
-	for(int i=0;i<size;i++) 
-	{
-		std::cout<<output[i]<<" ";
-	}
-	std::cout<<std::endl;
+	// std::cout<<"weight : ";
+	// for(int i=0;i<size;i++) 
+	// {
+	// 	std::cout<<output[i]<<" ";
+	// }
+	// std::cout<<std::endl;
 
 	//test
 	// SlaveInfo test_input[3];
