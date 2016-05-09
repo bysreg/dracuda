@@ -218,6 +218,9 @@ void printVec(__m128 vec)
 #define MUL _mm_mul_ps
 #define DIV _mm_div_ps
 #define CMP _mm_cmp_ps
+#define LT _mm_cmplt_ps
+#define GT _mm_cmpgt_ps
+#define CMP _mm_cmp_ps
 #define BLEND _mm_blendv_ps
 
 #define PLANE_INTERSECT(geo, a0, a1, a2, v0, v1, v2) \
@@ -225,23 +228,23 @@ B = SET1(cuConstants.positions[geo] - ray_e.a0); \
 A = DIV(B, v0);\
 C = MUL(A, v1); B = SET1(ray_e.a1); C = ADD(C, B);\
 B = SET1(cuConstants.lower_bounds[geo].a1);\
-M1 = CMP(C, B, _CMP_GT_OQ);\
+M1 = GT(C, B);\
 B = SET1(cuConstants.upper_bounds[geo].a1);\
-M2 = CMP(C, B, _CMP_LT_OQ);\
+M2 = LT(C, B);\
 M1 = _mm_and_ps(M1, M2);\
 C = MUL(A, v2);\
 B = SET1(ray_e.a2);\
 C = ADD(C, B);\
 B = SET1(cuConstants.lower_bounds[geo].a2);\
-M2 = CMP(C, B, _CMP_GT_OQ);\
+M2 = GT(C, B);\
 M1 = _mm_and_ps(M1, M2);\
 B = SET1(cuConstants.upper_bounds[geo].a2);\
-M2 = CMP(C, B, _CMP_LT_OQ);\
+M2 = LT(C, B);\
 M1 = _mm_and_ps(M1, M2);\
 B = SET1(0.0001); \
-M2 = CMP(A, B, _CMP_GT_OQ);\
+M2 = GT(A, B);\
 M1 = _mm_and_ps(M1, M2);\
-M2 = CMP(A, D, _CMP_LT_OQ);\
+M2 = LT(A, D);\
 M1 = _mm_and_ps(M1, M2);\
 D = _mm_blendv_ps(D, A, M1);\
 B = SET1(geo + 0.0);\
@@ -337,15 +340,15 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 				A = _mm_sqrt_ps(A); // A = sqrt(B2 - C)
 				C = SUB(C, A); // C = -B - sqrt(B2 - C) == t
 				B = SET1(EPS);
-				M0 = CMP(C, B, _CMP_GT_OQ); // M0 = A > B
-				M1 = CMP(C, D, _CMP_LT_OQ); // M0 = A > B
+				M0 = GT(C, B); // M0 = A > B
+				M1 = LT(C, D); // M0 = A > B
 				M0 = _mm_and_ps(M0, M1);
 				A = SET1(i);
 				G = _mm_blendv_ps(G, A, M0); // G is geom
 				D = _mm_blendv_ps(D, C, M0); // D is tmin
 			}
 			A = SET1(9999.0);
-			M0 = CMP(D, A, _CMP_LT_OQ);
+			M0 = LT(D, A);
 			M3 = M0;
 			isSpheres = _mm_movemask_ps(M0);
 			isSpheres &= 255;
@@ -417,7 +420,7 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 				C = _mm_max_ps(V1x, C);
 				//printVec(C);
 				B = SET1(0.5);
-				M0 = CMP(C, B, _CMP_LT_OQ); // C abs(normal.x)
+				M0 = LT(C, B); // C abs(normal.x)
 				A = SET1(0); V3x = BLEND(V1z, A, M0);
 				V3x = SUB(A, V3x); // x = 0 / -z;
 				A = SET1(0); V3y = BLEND(A, V1z, M0); // y = z / 0
@@ -467,10 +470,10 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 					B = SUB(B, C); // B = h
 					C = SET1(16.0); B = MUL(B, C); B = DIV(B, A); // B = res
 					E = SET1(0.0);
-					M0 = CMP(A, E, _CMP_GT_OQ); M1 = CMP(B, E, _CMP_LT_OQ);
+					M0 = GT(A, E); M1 = LT(B, E);
 					B = BLEND(B, E, M1);
 
-					M1 = CMP(B, S, _CMP_LT_OQ);
+					M1 = LT(B, S);
 					M0 = _mm_and_ps(M0, M1);
 					S = BLEND(S, B, M0);
 				}
@@ -518,7 +521,7 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 			C0x = MUL(C0x, S0); C0y = MUL(C0y, S0); C0z = MUL(C0z, S0);
 			C0x = BLEND(C0x, C1x, M3); C0y = BLEND(C0y, C1y, M3); C0z = BLEND(C0z, C1z, M3);
 
-			B = SET1(0.0); M0 = CMP(G, B, _CMP_LT_OQ);
+			B = SET1(0.0); M0 = LT(G, B);
 			C2x = ADD(C2x, C0x); C2y = ADD(C2y, C0y); C2z = ADD(C2z, C0z);
 		} // SAMPLES
 			C2x = _mm_sqrt_ps(C2x);
@@ -530,9 +533,9 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 			C2z = MUL(C2z, B);
 
 			B = SET1(1.0);
-			M2 = CMP(C2x, B, _CMP_GT_OQ); C2x = BLEND(C2x, B, M2); //CLAMP
-			M2 = CMP(C2y, B, _CMP_GT_OQ); C2y = BLEND(C2y, B, M2);
-			M2 = CMP(C2z, B, _CMP_GT_OQ); C2z = BLEND(C2z, B, M2);
+			M2 = GT(C2x, B); C2x = BLEND(C2x, B, M2); //CLAMP
+			M2 = GT(C2y, B); C2y = BLEND(C2y, B, M2);
+			M2 = GT(C2z, B); C2z = BLEND(C2z, B, M2);
 			_mm_store_ps(tempBuffer, C2x);
 			_mm_store_ps(tempBuffer + 8, C2y);
 			_mm_store_ps(tempBuffer + 16, C2z);
