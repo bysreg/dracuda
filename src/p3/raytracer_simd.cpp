@@ -285,9 +285,9 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 			random_uniform(), random_uniform(), random_uniform(),
 			random_uniform(), random_uniform());
 	#pragma omp for private(tid) schedule(dynamic)
-	for (int y = 0; y < HEIGHT; y++) {
+	for (int y = cuScene.y0; y < HEIGHT; y++) {
 		for (int x0 = 0; x0 < WIDTH; x0 += 8) {
-			int w = y * WIDTH + x0;
+			int w = (y  - cuScene.y0)* WIDTH + x0;
 			C2x = SET1(0); C2y = SET1(0); C2z = SET1(0);
 			for (int sampleX = 0; sampleX < NSAMPLES; sampleX++)
 			for (int sampleY = 0; sampleY < NSAMPLES; sampleY++) {

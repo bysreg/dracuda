@@ -331,8 +331,8 @@ static bool parse_args( Options* opt, int argc, char* argv[] )
 			continue;
 		}
 	}
-	if (argc >= 3) {
-		char *arg = argv[2];
+	if (argc >= 4) {
+		char *arg = argv[3];
 		if (strcmp(arg, "cuda") == 0) {
 			mode = 0;
 		} else if (strcmp(arg, "simd") == 0) {
@@ -480,7 +480,13 @@ void on_slave_receive_message(const Message& message)
 	double rendering_start = CycleTimer::currentSeconds();
 
 	std::memcpy(&cudaSceneCopy, message.body(), message.body_length());
-	cudaRayTrace(&cudaSceneCopy, s_app->buffer + slave_buffer_img_offset);
+	if (mode == 0) {
+		cudaRayTrace(&cudaSceneCopy, s_app->buffer + slave_buffer_img_offset);
+	} else if (mode == 1) {
+		simdRayTrace(&cudaSceneCopy, s_app->buffer + slave_buffer_img_offset);
+	} else {
+		singleRayTrace(&cudaSceneCopy, s_app->buffer + slave_buffer_img_offset);
+	}
 
 	// calculate the rendering latency
 	double rendering_latency = CycleTimer::currentSeconds() 
