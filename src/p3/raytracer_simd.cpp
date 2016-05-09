@@ -13,9 +13,6 @@
 
 #define EPS 0.0001
 
-#define NSAMPLES 5
-#define SHADOW_RAYS 5
-
 static PoolConstants cuConstants;// = poolConstants;
 static CudaScene cuScene;
 
@@ -541,9 +538,9 @@ void simdRayTrace(CudaScene *scene, unsigned char *img)
 			_mm256_store_ps(tempBuffer + 8, C2y);
 			_mm256_store_ps(tempBuffer + 16, C2z);
 			for (int i = 0; i < 8; i++) {
-				img[4 * w + 4 * i] = 255 * tempBuffer[i];
-				img[4 * w + 4 * i + 1] = 255 * tempBuffer[8 + i];
-				img[4 * w + 4 * i + 2] = 255 * tempBuffer[16 + i];
+				img[3 * w + 3 * i] = 255 * tempBuffer[i];
+				img[3 * w + 3 * i + 1] = 255 * tempBuffer[8 + i];
+				img[3 * w + 3 * i + 2] = 255 * tempBuffer[16 + i];
 			}
 		} // x = 0 -> WIDTH
 	} // y = 0 -> HEIGHT
